@@ -1,0 +1,23 @@
+name: Feature proposal
+description: Describe a workflow Paster could improve.
+title: "Idea: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do?
+      description: Describe the workflow before proposing an implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed behavior and alternatives
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Permissions, data access and privacy
+      description: Especially important for AI, MCP, network or automation features.

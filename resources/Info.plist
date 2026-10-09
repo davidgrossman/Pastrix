@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDisplayName</key>
+	<string>Paster</string>
+	<key>CFBundleExecutable</key>
+	<string>Paster</string>
+	<key>CFBundleIconFile</key>
+	<string>Paster</string>
+	<key>CFBundleIdentifier</key>
+	<string>com.davidgrossman.Paster</string>
+	<key>CFBundleName</key>
+	<string>Paster</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.2.1</string>
+	<key>CFBundleVersion</key>
+	<string>4</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>14.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSHighResolutionCapable</key>
+	<true/>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 David Grossman. Independent clipboard manager.</string>
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Paster Clips</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.davidgrossman.paster.clip-ids</string>
+		</dict>
+		<dict>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeDescription</key>
+			<string>Paster Pinboard</string>
+			<key>UTTypeIdentifier</key>
+			<string>com.davidgrossman.paster.board-id</string>
+		</dict>
+	</array>
+</dict>
+</plist>

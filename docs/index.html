@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Paster — A native clipboard manager for Mac</title>
+  <meta name="description" content="Paster is a private, native clipboard manager for Apple Silicon Macs. Search recent clips, organize pinboards, and paste a queue in order.">
+  <meta name="theme-color" content="#f4efff">
+  <link rel="canonical" href="https://davidgrossman.github.io/Paster/">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Paster — A little more flow. A lot less copying.">
+  <meta property="og:description" content="A private, native clipboard manager for Apple Silicon Macs.">
+  <meta property="og:url" content="https://davidgrossman.github.io/Paster/">
+  <meta property="og:image" content="https://davidgrossman.github.io/Paster/assets/paster-shelf.jpg">
+  <meta property="og:image:alt" content="Paster’s visual clipboard shelf showing several kinds of copied content">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="assets/paster-icon.png" type="image/png">
+  <link rel="stylesheet" href="site.css">
+  <script src="site.js" defer></script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Paster", "applicationCategory": "UtilitiesApplication", "operatingSystem": "macOS 14 or later; Apple Silicon", "softwareVersion": "1.2.1", "url": "https://davidgrossman.github.io/Paster/", "downloadUrl": "https://github.com/davidgrossman/Paster/releases/download/v1.2.1/Paster-1.2.1-macOS-arm64.zip", "license": "https://github.com/davidgrossman/Paster/blob/main/LICENSE", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}</script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <a class="brand" href="#top" aria-label="Paster home">
+      <img src="assets/paster-icon.png" alt="" width="38" height="38">
+      <span>Paster</span>
+    </a>
+    <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="site-nav">
+      <span class="sr-only">Open menu</span>
+      <span aria-hidden="true"></span>
+      <span aria-hidden="true"></span>
+    </button>
+    <nav id="site-nav" class="site-nav" aria-label="Main navigation">
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#install">Install</a>
+      <a href="https://github.com/davidgrossman/Paster">GitHub</a>
+      <a class="nav-download" href="https://github.com/davidgrossman/Paster/releases/download/v1.2.1/Paster-1.2.1-macOS-arm64.zip">Download</a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section id="top" class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span></span> Native to your Mac</p>
+        <h1>A little more flow.<br><em>A lot less copying.</em></h1>
+        <p class="hero-lede">Paster keeps what you copy close at hand. Find it, organize it, or line it up to paste—without sending your history anywhere.</p>
+        <div class="hero-actions">
+          <a class="button button-primary" href="https://github.com/davidgrossman/Paster/releases/download/v1.2.1/Paster-1.2.1-macOS-arm64.zip">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14"/></svg>
+            Download 1.2.1
+          </a>
+          <a class="button button-secondary" href="https://github.com/davidgrossman/Paster">View on GitHub</a>
+        </div>
+        <p class="hero-note">Early public preview · Apple Silicon · macOS 14+</p>
+      </div>
+
+      <div class="hero-stage" aria-label="Paster app preview">
+        <div class="stage-glow"></div>
+        <img class="app-icon" src="assets/paster-icon.png" alt="Paster app icon" width="512" height="512">
+        <figure class="shelf-window">
+          <img src="assets/paster-shelf.jpg" alt="Paster’s translucent shelf with clips from Notes, Safari, Sketch, Photos, and Mail" width="2640" height="832">
+        </figure>
+        <figure class="queue-window">
+          <img src="assets/paster-queue.jpg" alt="Paster Clip Queue, ready to paste copied items in order" width="684" height="210">
+        </figure>
+      </div>
+    </section>
+
+    <section class="ticker" aria-label="Paster highlights">
+      <div>
+        <span>Local history</span><i>✦</i>
+        <span>Visual shelf</span><i>✦</i>
+        <span>Clip queue</span><i>✦</i>
+        <span>Native Mac app</span><i>✦</i>
+        <span>No account</span>
+      </div>
+    </section>
+
+    <section id="features" class="section features">
+      <div class="section-heading reveal">
+        <p class="eyebrow"><span></span> Keep your train of thought</p>
+        <h2>Copy once.<br>Use it when it matters.</h2>
+        <p>Paster turns the clipboard from a one-item dead end into a calm, searchable workspace.</p>
+      </div>
+
+      <div class="feature-grid">
+        <article class="feature-card feature-shelf reveal">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="M8 9h8M8 13h5"/></svg>
+          </div>
+          <h3>See what you copied</h3>
+          <p>Text, links, colors, images, PDFs, rich text, and Finder files appear together in a visual shelf.</p>
+          <span class="feature-label">⌘⇧V to open</span>
+        </article>
+
+        <article class="feature-card feature-search reveal">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 5 5"/></svg>
+          </div>
+          <h3>Find the right clip</h3>
+          <p>Search content, source app, or type. Pin the clips you reuse to named, colored boards.</p>
+          <div class="search-demo" aria-hidden="true"><span>⌕</span><span class="search-text">Search clipboard</span><kbd>⌘F</kbd></div>
+        </article>
+
+        <article class="feature-card feature-queue reveal">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="m5 8 7-4 7 4-7 4-7-4Z"/><path d="m5 12 7 4 7-4M5 16l7 4 7-4"/></svg>
+          </div>
+          <h3>Paste a sequence</h3>
+          <p>Start a queue, copy a few things, then paste each one in order. Reverse, remove, or clear at any time.</p>
+          <span class="feature-label">⌃⌘V for Paste Next</span>
+        </article>
+
+        <article class="feature-card feature-control reveal">
+          <div class="feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3 4 7v5c0 5 3.4 8 8 9 4.6-1 8-4 8-9V7l-8-4Z"/><path d="m9 12 2 2 4-5"/></svg>
+          </div>
+          <h3>Stay in control</h3>
+          <p>Pause capture, exclude apps, set history limits, and clear unpinned clips whenever you choose.</p>
+          <span class="feature-label">Your Mac, your data</span>
+        </article>
+      </div>
+    </section>
+
+    <section class="workflow section">
+      <div class="workflow-window reveal">
+        <div class="window-bar" aria-hidden="true"><i></i><i></i><i></i><span>Clip Queue</span></div>
+        <div class="workflow-inner">
+          <div class="workflow-copy">
+            <p class="eyebrow"><span></span> A queue for repetitive work</p>
+            <h2>Collect now.<br>Paste in order.</h2>
+            <p>Start a session from the menu bar. Each new, unique copy joins the queue. Then move through it with Paste Next—or use ordinary ⌘V after granting Accessibility.</p>
+            <p class="fine-print">The queue lasts for the current session. Ending it restores ordinary paste and leaves unpasted clips available on the shelf.</p>
+          </div>
+          <div class="queue-stack" aria-hidden="true">
+            <div class="queue-clip clip-three"><span>3</span><p>Follow-up notes</p></div>
+            <div class="queue-clip clip-two"><span>2</span><p>https://example.com</p></div>
+            <div class="queue-clip clip-one"><span>1</span><p>Here’s the latest update…</p><b>Next</b></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="privacy" class="section privacy">
+      <div class="privacy-card reveal">
+        <div class="privacy-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><rect x="5" y="10" width="14" height="11" rx="3"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        </div>
+        <div>
+          <p class="eyebrow light"><span></span> Private by design</p>
+          <h2>Your clipboard stays on your Mac.</h2>
+        </div>
+        <div class="privacy-copy">
+          <p>No account. No telemetry. No advertising. No cloud history. Paster stores clips in a local SQLite database that is readable by your macOS account.</p>
+          <p>Update checks contact GitHub only when you ask. Feedback can save a local draft or open GitHub’s issue form; Paster does not upload the draft or attach clipboard history.</p>
+        </div>
+      </div>
+      <div class="privacy-details reveal">
+        <p><strong>One honest detail:</strong> Paster does not separately encrypt its database. Use FileVault to protect data at rest, keep exported JSON backups private, and exclude sensitive apps when needed.</p>
+      </div>
+    </section>
+
+    <section id="install" class="section install">
+      <div class="section-heading reveal">
+        <p class="eyebrow"><span></span> Get started</p>
+        <h2>From download to first paste.</h2>
+      </div>
+      <ol class="install-steps">
+        <li class="reveal">
+          <span>1</span>
+          <div><h3>Download and move</h3><p>Unzip Paster and move <strong>Paster.app</strong> to your Applications folder.</p></div>
+        </li>
+        <li class="reveal">
+          <span>2</span>
+          <div><h3>Open the preview</h3><p>Control-click Paster and choose <strong>Open</strong>. If macOS blocks it, use <strong>Privacy &amp; Security → Open Anyway</strong>.</p></div>
+        </li>
+        <li class="reveal">
+          <span>3</span>
+          <div><h3>Choose direct paste</h3><p>Grant Accessibility only if you want direct paste or ordinary ⌘V during a queue. Other features do not need it.</p></div>
+        </li>
+      </ol>
+      <aside class="preview-note reveal">
+        <span aria-hidden="true">!</span>
+        <p><strong>Early public preview</strong><br>This Apple Silicon build requires macOS 14 or later. It is ad-hoc signed and has not been notarized.</p>
+      </aside>
+    </section>
+
+    <section class="shortcuts section">
+      <div class="section-heading reveal">
+        <p class="eyebrow"><span></span> Stay on the keyboard</p>
+        <h2>Shortcuts that keep up.</h2>
+      </div>
+      <dl class="shortcut-list reveal">
+        <div><dt>Open Paster</dt><dd><kbd>⌘</kbd><kbd>⇧</kbd><kbd>V</kbd></dd></div>
+        <div><dt>Paste next</dt><dd><kbd>⌃</kbd><kbd>⌘</kbd><kbd>V</kbd></dd></div>
+        <div><dt>Paste as plain text</dt><dd><kbd>⇧</kbd><kbd>Return</kbd></dd></div>
+        <div><dt>Search</dt><dd><kbd>⌘</kbd><kbd>F</kbd></dd></div>
+      </dl>
+    </section>
+
+    <section class="final-cta">
+      <img src="assets/paster-icon.png" alt="" width="112" height="112" class="reveal">
+      <p class="eyebrow centered"><span></span> Open source for the Mac <span></span></p>
+      <h2 class="reveal">Make room for<br>the thought you’re on.</h2>
+      <p class="reveal">Download the early preview, or help make Paster better on GitHub.</p>
+      <div class="hero-actions centered-actions reveal">
+        <a class="button button-primary" href="https://github.com/davidgrossman/Paster/releases/download/v1.2.1/Paster-1.2.1-macOS-arm64.zip">Download Paster 1.2.1</a>
+        <a class="button button-secondary" href="https://github.com/davidgrossman/Paster/blob/main/CONTRIBUTING.md">Contribute</a>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a class="brand footer-brand" href="#top"><img src="assets/paster-icon.png" alt="" width="30" height="30"><span>Paster</span></a>
+    <p>Native clipboard flow for macOS.</p>
+    <nav aria-label="Footer">
+      <a href="https://github.com/davidgrossman/Paster">Source</a>
+      <a href="https://github.com/davidgrossman/Paster/releases">Releases</a>
+      <a href="https://github.com/davidgrossman/Paster/blob/main/LICENSE">MIT License</a>
+      <a href="https://github.com/davidgrossman/Paster/blob/main/docs/PRIVACY.md">Privacy details</a>
+    </nav>
+  </footer>
+</body>
+</html>

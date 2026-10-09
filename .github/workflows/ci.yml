@@ -1,0 +1,20 @@
+name: macOS build and tests
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Show toolchain
+        run: swift --version
+      - name: Test with synthetic fixtures
+        run: swift test
+      - name: Build app bundle
+        run: ./scripts/build-app.sh
+      - name: Verify app signature
+        run: codesign --verify --deep --strict dist/Paster.app

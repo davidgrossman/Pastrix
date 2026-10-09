@@ -1,0 +1,16 @@
+.build/
+.swiftpm/
+dist/
+backups/
+evidence/
+HANDOFF.md
+.DS_Store
+*.xcuserstate
+.env
+.env.*
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.p12
+*.pfx
+*.mobileprovision

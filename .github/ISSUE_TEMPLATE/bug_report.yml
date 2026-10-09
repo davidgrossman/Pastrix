@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible problem using synthetic clipboard content.
+title: "Bug: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Do not include real clipboard content, credentials, personal screenshots or backup files. For security issues, use private vulnerability reporting."
+  - type: input
+    id: version
+    attributes:
+      label: Paster and macOS versions
+      placeholder: "Paster 1.2.1; macOS version; Apple Silicon model"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Use made-up text or the --demo environment.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected and actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: permission
+    attributes:
+      label: Relevant setup
+      description: "For paste issues: Accessibility status, destination app and conflicting clipboard shortcuts. Do not attach databases."
