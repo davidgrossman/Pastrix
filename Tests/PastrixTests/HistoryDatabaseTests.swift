@@ -167,6 +167,7 @@ final class HistoryDatabaseTests: XCTestCase {
             let clips = try await database.clips()
             let stored = try XCTUnwrap(clips.first)
             XCTAssertNil(stored.boardID)
+            XCTAssertGreaterThan(stored.lastUsedAt, Date(timeIntervalSince1970: 1_700_000_000))
         }
     }
 
@@ -192,8 +193,8 @@ final class HistoryDatabaseTests: XCTestCase {
             for index in 0..<4 {
                 try await database.upsert(makeClip(
                     id: "recent-\(index)",
-                    createdAt: now.addingTimeInterval(Double(index)),
-                    lastUsedAt: now.addingTimeInterval(Double(index)),
+                    createdAt: now.addingTimeInterval(-86_400 + Double(index)),
+                    lastUsedAt: now.addingTimeInterval(-86_400 + Double(index)),
                     fingerprint: "recent-fingerprint-\(index)"
                 ))
             }
@@ -201,7 +202,56 @@ final class HistoryDatabaseTests: XCTestCase {
             try await database.prune(maxItems: 2, maxAgeDays: 5)
 
             let remaining = try await database.clips()
-            XCTAssertEqual(Set(remaining.map(\.id)), ["pinned-old", "recent-3"])
+            XCTAssertEqual(Set(remaining.map(\.id)), ["pinned-old", "recent-2", "recent-3"])
+        }
+    }
+
+    func testUnpinnedOldClipsSurviveNextCapturePruneAndUndo() async throws {
+        try await withTemporaryDatabase { database, _ in
+            let oldDate = Date().addingTimeInterval(-90 * 86_400)
+            try await database.saveBoard(Pinboard(id: "source", name: "Source", color: "red"))
+            try await database.saveBoard(Pinboard(id: "other", name: "Other", color: "blue"))
+
+            for id in ["old-a", "old-b"] {
+                try await database.upsert(makeClip(
+                    id: id,
+                    createdAt: oldDate,
+                    lastUsedAt: oldDate,
+                    fingerprint: "fingerprint-\(id)",
+                    boardID: "source"
+                ))
+            }
+            // A separate board already exceeds the unpinned history limit.
+            // Pinned content must not consume that limit.
+            for id in ["kept-a", "kept-b", "kept-c"] {
+                try await database.upsert(makeClip(
+                    id: id,
+                    createdAt: oldDate,
+                    lastUsedAt: oldDate,
+                    fingerprint: "fingerprint-\(id)",
+                    boardID: "other"
+                ))
+            }
+
+            let undo = try await database.assign(ids: ["old-a", "old-b"], boardID: nil)
+            try await database.upsert(makeClip(
+                id: "new-capture",
+                createdAt: Date(),
+                lastUsedAt: Date(),
+                fingerprint: "fingerprint-new-capture"
+            ))
+            try await database.prune(maxItems: 3, maxAgeDays: 30)
+
+            let oldA = try await database.clip(id: "old-a")
+            let oldB = try await database.clip(id: "old-b")
+            let newCapture = try await database.clip(id: "new-capture")
+            XCTAssertNotNil(oldA)
+            XCTAssertNotNil(oldB)
+            XCTAssertNotNil(newCapture)
+            let restoredCount = try await database.restoreBoardAssignment(undo)
+            let restored = try await database.clips(boardID: "source")
+            XCTAssertEqual(restoredCount, 2)
+            XCTAssertEqual(Set(restored.map(\.id)), ["old-a", "old-b"])
         }
     }
 
@@ -474,6 +524,313 @@ final class HistoryDatabaseTests: XCTestCase {
         }
     }
 
+    func testBatchAssignmentUndoRestoresEachOriginalPinboardAndOrder() async throws {
+        try await withTemporaryDatabase { database, _ in
+            for board in [
+                Pinboard(id: "source-a", name: "Source A", color: "red"),
+                Pinboard(id: "source-b", name: "Source B", color: "blue"),
+                Pinboard(id: "destination", name: "Destination", color: "purple")
+            ] {
+                try await database.saveBoard(board)
+            }
+            for id in ["a1", "a2", "b1", "free"] {
+                try await database.upsert(makeClip(id: id, fingerprint: "fingerprint-\(id)"))
+            }
+            try await database.assign(ids: ["a1", "a2"], boardID: "source-a")
+            try await database.assign(ids: ["b1"], boardID: "source-b")
+
+            let undo = try await database.assign(ids: ["a1", "b1", "free"], boardID: "destination")
+            XCTAssertEqual(
+                undo.placements,
+                [
+                    ClipBoardPlacement(clipID: "a1", boardID: "source-a", boardPosition: 0),
+                    ClipBoardPlacement(clipID: "b1", boardID: "source-b", boardPosition: 0),
+                    ClipBoardPlacement(clipID: "free", boardID: nil, boardPosition: nil)
+                ]
+            )
+            let assigned = try await database.clips(boardID: "destination")
+            XCTAssertEqual(assigned.map(\.id), ["a1", "b1", "free"])
+
+            let restoredCount = try await database.restoreBoardAssignment(undo)
+
+            let sourceA = try await database.clips(boardID: "source-a")
+            let sourceB = try await database.clips(boardID: "source-b")
+            let destination = try await database.clips(boardID: "destination")
+            let free = try await database.clip(id: "free")
+            XCTAssertEqual(sourceA.map(\.id), ["a1", "a2"])
+            XCTAssertEqual(sourceB.map(\.id), ["b1"])
+            XCTAssertTrue(destination.isEmpty)
+            XCTAssertNil(try XCTUnwrap(free).boardID)
+            XCTAssertEqual(restoredCount, 3)
+        }
+    }
+
+    func testAssignmentUndoHandlesClipsAndOriginalPinboardsDeletedAfterDrop() async throws {
+        try await withTemporaryDatabase { database, _ in
+            try await database.saveBoard(Pinboard(id: "original", name: "Original", color: "red"))
+            try await database.saveBoard(Pinboard(id: "destination", name: "Destination", color: "blue"))
+            for id in ["survives", "deleted"] {
+                try await database.upsert(makeClip(id: id, fingerprint: "fingerprint-\(id)"))
+            }
+            try await database.assign(ids: ["survives", "deleted"], boardID: "original")
+            let undo = try await database.assign(ids: ["survives", "deleted"], boardID: "destination")
+
+            try await database.delete(ids: ["deleted"])
+            try await database.deleteBoard(id: "original")
+            let restoredCount = try await database.restoreBoardAssignment(undo)
+
+            let survivingClip = try await database.clip(id: "survives")
+            let deletedClip = try await database.clip(id: "deleted")
+            let destination = try await database.clips(boardID: "destination")
+            let storedSurvivor = try XCTUnwrap(survivingClip)
+            XCTAssertNil(storedSurvivor.boardID)
+            XCTAssertGreaterThan(storedSurvivor.lastUsedAt, Date(timeIntervalSince1970: 1_700_000_000))
+            XCTAssertNil(deletedClip)
+            XCTAssertTrue(destination.isEmpty)
+            XCTAssertEqual(restoredCount, 1)
+        }
+    }
+
+    func testSyncBoardStateExportsBeyondShelfLimitAndRejectsOversizedBoards() async throws {
+        try await withTemporaryDatabase { database, _ in
+            let boardID = UUID().uuidString
+            try await database.saveBoard(Pinboard(id: boardID, name: "Large", color: "blue"))
+            var ids: [String] = []
+            for index in 0...2_000 {
+                let id = UUID().uuidString
+                ids.append(id)
+                let clip = try makeValidSyncedClip(id: id, text: "clip-\(index)")
+                try await database.upsert(clip)
+            }
+            try await database.assign(ids: Array(ids.prefix(501)), boardID: boardID)
+
+            guard case let .active(_, exported)? = try await database.syncBoardState(id: boardID) else {
+                return XCTFail("Expected active synced board state")
+            }
+            XCTAssertEqual(exported.count, 501)
+
+            try await database.assign(ids: Array(ids.dropFirst(501)), boardID: boardID)
+            do {
+                _ = try await database.syncBoardState(id: boardID)
+                XCTFail("Expected oversized board to be rejected")
+            } catch HistoryDatabaseError.syncBoardTooLarge(let id, let count, let limit) {
+                XCTAssertEqual(id, boardID)
+                XCTAssertEqual(count, 2_001)
+                XCTAssertEqual(limit, 2_000)
+            }
+        }
+    }
+
+    func testSyncBoardStateRejectsOversizedPayloadBeforeDecodingClips() async throws {
+        try await withTemporaryDatabase { database, url in
+            let boardID = UUID().uuidString
+            let clipID = UUID().uuidString
+            try await database.saveBoard(Pinboard(id: boardID, name: "Large payload", color: "blue"))
+
+            var connection: OpaquePointer?
+            XCTAssertEqual(sqlite3_open_v2(url.path, &connection, SQLITE_OPEN_READWRITE, nil), SQLITE_OK)
+            let rawDatabase = try XCTUnwrap(connection)
+            defer { sqlite3_close_v2(rawDatabase) }
+            let oversizedBytes = 32 * 1_024 * 1_024 + 1
+            let sql = """
+                INSERT INTO clips (
+                    id, kind, title, text, source_app, source_bundle_id,
+                    created_at, last_used_at, copy_count, fingerprint, board_id,
+                    custom_title, board_position, payload
+                ) VALUES (
+                    '\(clipID)', 'text', 'Oversized', '', 'Test App', 'com.example.test',
+                    1700000000, 1700000000, 1, 'oversized-payload', '\(boardID)',
+                    NULL, 0, zeroblob(\(oversizedBytes))
+                )
+                """
+            XCTAssertEqual(sqlite3_exec(rawDatabase, sql, nil, nil, nil), SQLITE_OK)
+
+            do {
+                _ = try await database.syncBoardState(id: boardID)
+                XCTFail("Expected oversized payload to be rejected")
+            } catch HistoryDatabaseError.syncBoardPayloadTooLarge(let id, let bytes, let limit) {
+                XCTAssertEqual(id, boardID)
+                XCTAssertEqual(bytes, Int64(oversizedBytes))
+                XCTAssertEqual(limit, Int64(32 * 1_024 * 1_024))
+            }
+        }
+    }
+
+    func testApplySyncedBoardReplacesExactContentAndUnpinsRemoteRemovals() async throws {
+        try await withTemporaryDatabase { database, _ in
+            let boardID = UUID().uuidString
+            let unrelatedBoardID = UUID().uuidString
+            let keptID = UUID().uuidString
+            let removedID = UUID().uuidString
+            let newID = UUID().uuidString
+            let unrelatedID = UUID().uuidString
+            let localBoard = Pinboard(id: boardID, name: "Local", color: "red", position: 0)
+            let unrelatedBoard = Pinboard(id: unrelatedBoardID, name: "Unrelated", color: "green", position: 1)
+            try await database.saveBoard(localBoard)
+            try await database.saveBoard(unrelatedBoard)
+            for clip in [
+                try makeValidSyncedClip(id: keptID, text: "local-kept", boardID: boardID, position: 0),
+                try makeValidSyncedClip(id: removedID, text: "local-removed", boardID: boardID, position: 1),
+                try makeValidSyncedClip(id: unrelatedID, text: "unrelated", boardID: unrelatedBoardID, position: 0)
+            ] {
+                try await database.upsert(clip)
+            }
+            let expected = try await database.syncBoardState(id: boardID)
+            let remoteBoard = Pinboard(id: boardID, name: "Remote", color: "purple", position: 4, icon: "star.fill")
+            var remoteKept = try makeValidSyncedClip(id: keptID, text: "remote-kept", boardID: boardID, position: 1)
+            remoteKept.customTitle = "Exact remote title"
+            remoteKept.copyCount = 17
+            let remoteNew = try makeValidSyncedClip(id: newID, text: "remote-new", boardID: boardID, position: 0)
+            let snapshot = try CloudSyncBoardSnapshot(
+                board: remoteBoard,
+                clips: [remoteNew, remoteKept],
+                revision: 2,
+                authorDeviceID: UUID()
+            )
+
+            let applied = try await database.applySyncedBoard(snapshot: snapshot, expectedState: expected)
+
+            let readback = try await database.syncBoardState(id: boardID)
+            let keptReadback = try await database.clip(id: keptID)
+            let removedReadback = try await database.clip(id: removedID)
+            let unrelatedReadback = try await database.clip(id: unrelatedID)
+            let boards = try await database.boards()
+            XCTAssertEqual(applied, readback)
+            let storedKept = try XCTUnwrap(keptReadback)
+            let storedRemoved = try XCTUnwrap(removedReadback)
+            let storedUnrelated = try XCTUnwrap(unrelatedReadback)
+            XCTAssertEqual(storedKept.text, "remote-kept")
+            XCTAssertEqual(storedKept.customTitle, "Exact remote title")
+            XCTAssertEqual(storedKept.copyCount, 17)
+            XCTAssertNil(storedRemoved.boardID)
+            XCTAssertEqual(storedUnrelated.boardID, unrelatedBoardID)
+            XCTAssertEqual(boards.first(where: { $0.id == unrelatedBoardID }), unrelatedBoard)
+        }
+    }
+
+    func testApplySyncedBoardRejectsStaleExpectedStateWithoutWrites() async throws {
+        try await withTemporaryDatabase { database, _ in
+            let boardID = UUID().uuidString
+            let clipID = UUID().uuidString
+            try await database.saveBoard(Pinboard(id: boardID, name: "Before", color: "red"))
+            let localClip = try makeValidSyncedClip(id: clipID, text: "local", boardID: boardID, position: 0)
+            try await database.upsert(localClip)
+            let stale = try await database.syncBoardState(id: boardID)
+            try await database.renameClip(id: clipID, title: "Edited while fetching")
+            let remoteBoard = Pinboard(id: boardID, name: "Remote", color: "blue")
+            let remoteClip = try makeValidSyncedClip(id: clipID, text: "remote", boardID: boardID, position: 0)
+            let snapshot = try CloudSyncBoardSnapshot(
+                board: remoteBoard,
+                clips: [remoteClip],
+                revision: 2,
+                authorDeviceID: UUID()
+            )
+
+            do {
+                try await database.applySyncedBoard(snapshot: snapshot, expectedState: stale)
+                XCTFail("Expected optimistic sync conflict")
+            } catch HistoryDatabaseError.syncConflict(let id) {
+                XCTAssertEqual(id, boardID)
+            }
+            let unchangedReadback = try await database.clip(id: clipID)
+            let boards = try await database.boards()
+            let unchanged = try XCTUnwrap(unchangedReadback)
+            XCTAssertEqual(unchanged.customTitle, "Edited while fetching")
+            XCTAssertEqual(boards.first(where: { $0.id == boardID })?.name, "Before")
+        }
+    }
+
+    func testApplySyncedBoardRejectsClipIDOwnedByAnotherBoard() async throws {
+        try await withTemporaryDatabase { database, _ in
+            let targetID = UUID().uuidString
+            let otherID = UUID().uuidString
+            let clipID = UUID().uuidString
+            try await database.saveBoard(Pinboard(id: targetID, name: "Target", color: "red"))
+            try await database.saveBoard(Pinboard(id: otherID, name: "Other", color: "green"))
+            try await database.upsert(try makeValidSyncedClip(id: clipID, text: "other", boardID: otherID, position: 0))
+            let expected = try await database.syncBoardState(id: targetID)
+            let snapshot = try CloudSyncBoardSnapshot(
+                board: Pinboard(id: targetID, name: "Remote Target", color: "blue"),
+                clips: [try makeValidSyncedClip(id: clipID, text: "remote", boardID: targetID, position: 0)],
+                revision: 1,
+                authorDeviceID: UUID()
+            )
+
+            do {
+                try await database.applySyncedBoard(snapshot: snapshot, expectedState: expected)
+                XCTFail("Expected clip identity collision")
+            } catch HistoryDatabaseError.syncClipIDCollision(let id, let boardID) {
+                XCTAssertEqual(id, clipID)
+                XCTAssertEqual(boardID, otherID)
+            }
+            let boards = try await database.boards()
+            let collidingClip = try await database.clip(id: clipID)
+            XCTAssertEqual(boards.first(where: { $0.id == targetID })?.name, "Target")
+            XCTAssertEqual(collidingClip?.boardID, otherID)
+        }
+    }
+
+    func testApplySyncedBoardKeepsFingerprintCollisionAsIndependentClip() async throws {
+        try await withTemporaryDatabase { database, _ in
+            let boardID = UUID().uuidString
+            let localID = UUID().uuidString
+            let remoteID = UUID().uuidString
+            let local = try makeValidSyncedClip(id: localID, text: "same payload")
+            let remote = try makeValidSyncedClip(id: remoteID, text: "same payload", boardID: boardID, position: 0)
+            try await database.upsert(local)
+            let snapshot = try CloudSyncBoardSnapshot(
+                board: Pinboard(id: boardID, name: "Remote", color: "blue"),
+                clips: [remote],
+                revision: 1,
+                authorDeviceID: UUID()
+            )
+
+            try await database.applySyncedBoard(snapshot: snapshot, expectedState: nil)
+
+            let localReadback = try await database.clip(id: localID)
+            let remoteReadback = try await database.clip(id: remoteID)
+            let count = try await database.count()
+            let storedLocal = try XCTUnwrap(localReadback)
+            let storedRemote = try XCTUnwrap(remoteReadback)
+            XCTAssertEqual(storedLocal.fingerprint, local.fingerprint)
+            XCTAssertEqual(storedRemote.fingerprint, "\(remote.fingerprint):edited:\(remoteID)")
+            XCTAssertEqual(count, 2)
+        }
+    }
+
+    func testApplySyncedTombstoneUnpinsClipsAndReturnsAbsentCheckpoint() async throws {
+        try await withTemporaryDatabase { database, _ in
+            let boardID = UUID()
+            let board = Pinboard(id: boardID.uuidString, name: "Delete remotely", color: "red")
+            let clip = try makeValidSyncedClip(
+                id: UUID().uuidString,
+                text: "keep locally",
+                boardID: board.id,
+                position: 0
+            )
+            try await database.saveBoard(board)
+            try await database.upsert(clip)
+            let expected = try await database.syncBoardState(id: board.id)
+            let tombstone = CloudSyncBoardSnapshot.tombstone(
+                boardID: boardID,
+                revision: 2,
+                authorDeviceID: UUID()
+            )
+
+            let applied = try await database.applySyncedBoard(snapshot: tombstone, expectedState: expected)
+
+            let boardState = try await database.syncBoardState(id: board.id)
+            let storedClip = try await database.clip(id: clip.id)
+            XCTAssertNil(applied)
+            XCTAssertNil(boardState)
+            XCTAssertNil(storedClip?.boardID)
+            XCTAssertGreaterThan(
+                try XCTUnwrap(storedClip).lastUsedAt,
+                Date(timeIntervalSince1970: 1_700_000_000)
+            )
+        }
+    }
+
     func testReorderValidationRejectsDuplicatesAndIncompleteMembershipWithoutChanges() async throws {
         try await withTemporaryDatabase { database, _ in
             try await database.saveBoard(Pinboard(id: "first-board", name: "First", color: "red"))
@@ -581,6 +938,26 @@ final class HistoryDatabaseTests: XCTestCase {
         encoder.outputFormatting = .sortedKeys
         let data = try encoder.encode(payload)
         return SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private func makeValidSyncedClip(
+        id: String,
+        text: String,
+        boardID: String? = nil,
+        position: Int? = nil
+    ) throws -> Clip {
+        let payload = ClipPayload(items: [[
+            ClipRepresentation(type: "public.utf8-plain-text", data: Data(text.utf8))
+        ]])
+        return makeClip(
+            id: id,
+            title: text,
+            text: text,
+            fingerprint: try canonicalFingerprint(for: payload),
+            boardID: boardID,
+            boardPosition: position,
+            payload: payload
+        )
     }
 
     private func createVersion1Fixture(at url: URL, payload: ClipPayload) throws {

@@ -61,3 +61,11 @@ Version 1.2.2 changes the public product, app bundle, executable, package target
 The renamed source targets are `Sources/Pastrix` and `Tests/PastrixTests`. The release archive is `Pastrix-1.2.2-macOS-arm64.zip` and contains `Pastrix.app`.
 
 The supplied purple clipboard P artwork is retained as `resources/Pastrix-master.png`. Running `swift scripts/make-icon.swift` reproducibly creates `resources/Pastrix.iconset`, `resources/Pastrix.icns`, and the 512 px website icon at `docs/assets/pastrix-icon.png`. The menu bar continues to use a separate monochrome clipboard-and-P template glyph so it adapts to light and dark menu bars.
+
+## Version 1.3 shelf, distribution and encrypted sync
+
+`ShelfInteraction` keeps native multi-selection and grouped dragging consistent. Board assignment returns a transactional placement snapshot for Undo. Drop feedback names the board and number of clips.
+
+`CloudSyncModels`, `CloudSyncCrypto`, `CloudSyncKeyStore`, `CloudSyncEngine` and `CloudSyncCloudKit` separate authenticated board snapshots, key establishment, optimistic conflict checks and the private CloudKit transport. `PinboardSyncController` persists opt-in board choices, account/key binding and opaque checkpoints; `PinboardSyncSettings` exposes setup, board selection and explicit conflict choices. Database imports compare the exact local board state transactionally before replacing a remote snapshot, retaining removed clips as unpinned history. Sync never uses capture deduplication as a substitute for exact-ID replication.
+
+The engine is tested using in-memory transports. Runtime and packaging gates require actual signed CloudKit capabilities before accessing Apple services. The public ad-hoc DMG is local-only until provisioning and two-Mac acceptance tests are completed. See [the complete sync contract and setup](ICLOUD-SYNC.md).

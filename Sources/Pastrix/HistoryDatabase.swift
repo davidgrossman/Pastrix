@@ -9,6 +9,10 @@ enum HistoryDatabaseError: Error, LocalizedError {
     case malformedClip(id: String, reason: String)
     case invalidBoard(id: String)
     case invalidOrdering(reason: String)
+    case syncBoardTooLarge(boardID: String, count: Int, limit: Int)
+    case syncBoardPayloadTooLarge(boardID: String, bytes: Int64, limit: Int64)
+    case syncConflict(boardID: String)
+    case syncClipIDCollision(clipID: String, boardID: String)
 
     var errorDescription: String? {
         switch self {
@@ -24,6 +28,14 @@ enum HistoryDatabaseError: Error, LocalizedError {
             "Pinboard \(id) does not exist."
         case let .invalidOrdering(reason):
             "Could not reorder items: \(reason)"
+        case let .syncBoardTooLarge(boardID, count, limit):
+            "Pinboard \(boardID) has \(count) clips; encrypted sync supports at most \(limit) per pinboard."
+        case let .syncBoardPayloadTooLarge(boardID, bytes, limit):
+            "Pinboard \(boardID) contains \(bytes) bytes of clip data; encrypted sync supports at most \(limit) bytes per pinboard."
+        case let .syncConflict(boardID):
+            "Pinboard \(boardID) changed while encrypted sync was in progress."
+        case let .syncClipIDCollision(clipID, boardID):
+            "Synced clip \(clipID) already belongs to pinboard \(boardID)."
         }
     }
 }
@@ -44,6 +56,8 @@ private final class SQLiteConnection: @unchecked Sendable {
 actor HistoryDatabase {
     private static let schemaVersion: Int32 = 2
     private static let maxUnpinnedPayloadBytes = 512 * 1024 * 1024
+    private static let maximumSyncedBoardClips = 2_000
+    private static let maximumSyncedBoardPayloadBytes: Int64 = 32 * 1_024 * 1_024
 
     private let connection: SQLiteConnection
     private var database: OpaquePointer { connection.pointer }
@@ -281,6 +295,75 @@ actor HistoryDatabase {
         }
     }
 
+    /// Captures the complete local state used for optimistic sync checks.
+    /// Absence is represented by nil so callers do not need to invent a new
+    /// tombstone timestamp each time they inspect a deleted board.
+    func syncBoardState(id: String) throws -> CloudSyncBoardState? {
+        guard let board = try boards().first(where: { $0.id == id }) else { return nil }
+        let payloadBytes = try syncedBoardPayloadBytes(id: id)
+        guard payloadBytes <= Self.maximumSyncedBoardPayloadBytes else {
+            throw HistoryDatabaseError.syncBoardPayloadTooLarge(
+                boardID: id,
+                bytes: payloadBytes,
+                limit: Self.maximumSyncedBoardPayloadBytes
+            )
+        }
+        let clips = try clips(boardID: id, limit: Self.maximumSyncedBoardClips + 1)
+        guard clips.count <= Self.maximumSyncedBoardClips else {
+            throw HistoryDatabaseError.syncBoardTooLarge(
+                boardID: id,
+                count: clips.count,
+                limit: Self.maximumSyncedBoardClips
+            )
+        }
+        return .active(board: board, clips: clips)
+    }
+
+    /// Applies a decrypted board only if its previously exported local state
+    /// still matches. The returned state is read inside the same transaction,
+    /// allowing the controller to checkpoint exactly what was committed.
+    @discardableResult
+    func applySyncedBoard(
+        snapshot: CloudSyncBoardSnapshot,
+        expectedState: CloudSyncBoardState?
+    ) throws -> CloudSyncBoardState? {
+        let snapshot = try snapshot.validated()
+        let boardID: String
+        switch snapshot.state {
+        case let .active(board, _): boardID = board.id
+        case .deleted: boardID = snapshot.boardID.uuidString
+        }
+
+        return try transaction {
+            let current = try syncBoardState(id: boardID)
+            guard current == expectedState else {
+                throw HistoryDatabaseError.syncConflict(boardID: boardID)
+            }
+
+            switch snapshot.state {
+            case .deleted:
+                try unpinClips(boardID: boardID)
+                try deleteSyncedBoardRow(id: boardID)
+                return nil
+
+            case let .active(board, clips):
+                guard clips.count <= Self.maximumSyncedBoardClips else {
+                    throw HistoryDatabaseError.syncBoardTooLarge(
+                        boardID: boardID,
+                        count: clips.count,
+                        limit: Self.maximumSyncedBoardClips
+                    )
+                }
+                let prepared = try preparedSyncedClips(clips, boardID: boardID)
+                try saveImportedBoard(board)
+                try unpinClips(boardID: boardID)
+                try stageSyncedClipFingerprints(prepared.map(\.id))
+                for clip in prepared { try storeSyncedClip(clip) }
+                return try syncBoardState(id: boardID)
+            }
+        }
+    }
+
     /// Imports a complete archive atomically. Every clip is validated before
     /// the first write, then boards and clips are committed together.
     func importArchive(boards: [Pinboard], clips: [Clip]) throws {
@@ -293,11 +376,7 @@ actor HistoryDatabase {
             else {
                 throw HistoryDatabaseError.malformedClip(id: clip.id, reason: "archive payload is empty")
             }
-            let canonical = try canonicalFingerprint(for: clip.payload, clipID: clip.id)
-            let collisionFingerprint = "\(canonical):edited:\(clip.id)"
-            guard clip.fingerprint == canonical || clip.fingerprint == collisionFingerprint else {
-                throw HistoryDatabaseError.malformedClip(id: clip.id, reason: "archive fingerprint does not match its payload")
-            }
+            _ = try validatedCanonicalFingerprint(for: clip)
         }
 
         try transaction {
@@ -312,10 +391,7 @@ actor HistoryDatabase {
 
     func deleteBoard(id: String) throws {
         try transaction {
-            try withStatement("UPDATE clips SET board_id = NULL, board_position = NULL WHERE board_id = ?", operation: "unassigning pinboard clips") { statement in
-                try bind(id, to: statement, at: 1)
-                try expectDone(statement, operation: "unassigning pinboard clips")
-            }
+            try unpinClips(boardID: id)
             try withStatement("DELETE FROM boards WHERE id = ?", operation: "deleting pinboard") { statement in
                 try bind(id, to: statement, at: 1)
                 try expectDone(statement, operation: "deleting pinboard")
@@ -324,15 +400,20 @@ actor HistoryDatabase {
         }
     }
 
-    func assign(clipID: String, boardID: String?) throws {
+    @discardableResult
+    func assign(clipID: String, boardID: String?) throws -> BoardAssignmentUndo {
         try assign(ids: [clipID], boardID: boardID)
     }
 
-    func assign(ids: [String], boardID: String?) throws {
-        guard !ids.isEmpty else { return }
-        try transaction {
+    @discardableResult
+    func assign(ids: [String], boardID: String?) throws -> BoardAssignmentUndo {
+        guard !ids.isEmpty else {
+            return BoardAssignmentUndo(placements: [], destinationBoardID: boardID)
+        }
+        return try transaction {
             try validateUniqueIDs(ids, label: "clip assignment")
             try validateClipIDsExist(ids)
+            let placements = try boardPlacements(for: ids)
             if let boardID {
                 try validateBoardExists(boardID)
                 var position = try nextClipPosition(in: boardID)
@@ -352,17 +433,67 @@ actor HistoryDatabase {
                 }
             } else {
                 try withStatement(
-                    "UPDATE clips SET board_id = NULL, board_position = NULL WHERE id = ?",
+                    "UPDATE clips SET board_id = NULL, board_position = NULL, last_used_at = ? WHERE id = ?",
                     operation: "unassigning clips"
                 ) { statement in
+                    let unpinnedAt = Date().timeIntervalSince1970
                     for id in ids {
                         sqlite3_reset(statement)
                         sqlite3_clear_bindings(statement)
-                        try bind(id, to: statement, at: 1)
+                        try bind(unpinnedAt, to: statement, at: 1)
+                        try bind(id, to: statement, at: 2)
                         try expectDone(statement, operation: "unassigning clips")
                     }
                 }
             }
+            return BoardAssignmentUndo(placements: placements, destinationBoardID: boardID)
+        }
+    }
+
+    /// Restores the per-clip locations captured before a batch assignment.
+    /// Missing clips are ignored. If a prior pinboard was deleted after the
+    /// assignment, its clip is restored to the unpinned history instead.
+    @discardableResult
+    func restoreBoardAssignment(_ undo: BoardAssignmentUndo) throws -> Int {
+        guard !undo.placements.isEmpty else { return 0 }
+        return try transaction {
+            try validateUniqueIDs(undo.placements.map(\.clipID), label: "assignment undo")
+            let existingClipIDs = Set(try identifiers(
+                sql: "SELECT id FROM clips",
+                operation: "loading clip IDs for assignment undo"
+            ))
+            let existingBoardIDs = Set(try boardIDs())
+            let restorable = undo.placements.filter { existingClipIDs.contains($0.clipID) }
+
+            try withStatement(
+                """
+                UPDATE clips
+                SET board_id = ?, board_position = ?,
+                    last_used_at = CASE WHEN ? IS NULL THEN ? ELSE last_used_at END
+                WHERE id = ?
+                """,
+                operation: "restoring clip pinboards"
+            ) { statement in
+                let restoredAt = Date().timeIntervalSince1970
+                for placement in restorable {
+                    sqlite3_reset(statement)
+                    sqlite3_clear_bindings(statement)
+                    let boardID = placement.boardID.flatMap { existingBoardIDs.contains($0) ? $0 : nil }
+                    try bind(boardID, to: statement, at: 1)
+                    try bind(boardID == nil ? nil : placement.boardPosition, to: statement, at: 2)
+                    try bind(boardID, to: statement, at: 3)
+                    try bind(restoredAt, to: statement, at: 4)
+                    try bind(placement.clipID, to: statement, at: 5)
+                    try expectDone(statement, operation: "restoring clip pinboards")
+                }
+            }
+
+            var affectedBoards = Set(restorable.compactMap(\.boardID))
+            if let destination = undo.destinationBoardID { affectedBoards.insert(destination) }
+            for boardID in affectedBoards where existingBoardIDs.contains(boardID) {
+                try normalizeClipPositions(in: boardID)
+            }
+            return restorable.count
         }
     }
 
@@ -499,7 +630,7 @@ actor HistoryDatabase {
                     SELECT id FROM clips
                     WHERE board_id IS NULL
                     ORDER BY last_used_at DESC, created_at DESC, id ASC
-                    LIMIT MAX(? - (SELECT COUNT(*) FROM clips WHERE board_id IS NOT NULL), 0)
+                    LIMIT ?
                 )
                 """,
                 operation: "enforcing history item limit"
@@ -644,6 +775,32 @@ actor HistoryDatabase {
         }
     }
 
+    private func validatedCanonicalFingerprint(for clip: Clip) throws -> String {
+        guard clip.copyCount >= 1 else {
+            throw HistoryDatabaseError.malformedClip(id: clip.id, reason: "copy count must be positive")
+        }
+        guard clip.byteCount <= ClipboardService.maxBytes else {
+            throw HistoryDatabaseError.malformedClip(id: clip.id, reason: "payload exceeds the per-clip size limit")
+        }
+        guard !clip.payload.items.isEmpty,
+              clip.payload.items.allSatisfy({ !$0.isEmpty }),
+              clip.payload.items.flatMap({ $0 }).allSatisfy({
+                  !$0.type.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !$0.data.isEmpty
+              })
+        else {
+            throw HistoryDatabaseError.malformedClip(id: clip.id, reason: "archive payload is empty")
+        }
+        let canonical = try canonicalFingerprint(for: clip.payload, clipID: clip.id)
+        let collisionFingerprint = "\(canonical):edited:\(clip.id)"
+        guard clip.fingerprint == canonical || clip.fingerprint == collisionFingerprint else {
+            throw HistoryDatabaseError.malformedClip(
+                id: clip.id,
+                reason: "archive fingerprint does not match its payload"
+            )
+        }
+        return canonical
+    }
+
     private func decodedClip(from statement: OpaquePointer) throws -> Clip {
         let id = columnText(statement, at: 0)
         guard let kind = ClipKind(rawValue: columnText(statement, at: 1)) else {
@@ -702,6 +859,153 @@ actor HistoryDatabase {
         }
     }
 
+    private func preparedSyncedClips(_ clips: [Clip], boardID: String) throws -> [Clip] {
+        try validateUniqueIDs(clips.map(\.id), label: "synced clips")
+        let remoteIDs = Set(clips.map(\.id))
+        var reservedFingerprints: [String: String] = [:]
+        var prepared: [Clip] = []
+        prepared.reserveCapacity(clips.count)
+
+        for var clip in clips {
+            if let existing = try self.clip(id: clip.id),
+               let existingBoardID = existing.boardID,
+               existingBoardID != boardID {
+                throw HistoryDatabaseError.syncClipIDCollision(
+                    clipID: clip.id,
+                    boardID: existingBoardID
+                )
+            }
+
+            let canonical = try validatedCanonicalFingerprint(for: clip)
+            let owner = try fingerprintOwner(canonical)
+            let canonicalIsBlocked = owner.map { $0 != clip.id && !remoteIDs.contains($0) } ?? false
+                || reservedFingerprints[canonical].map { $0 != clip.id } ?? false
+            let selected = canonicalIsBlocked ? "\(canonical):edited:\(clip.id)" : canonical
+            if let owner = try fingerprintOwner(selected), owner != clip.id, !remoteIDs.contains(owner) {
+                throw HistoryDatabaseError.malformedClip(
+                    id: clip.id,
+                    reason: "the collision-safe fingerprint is already in use"
+                )
+            }
+            if let reserved = reservedFingerprints[selected], reserved != clip.id {
+                throw HistoryDatabaseError.malformedClip(
+                    id: clip.id,
+                    reason: "the collision-safe fingerprint is duplicated in the synced pinboard"
+                )
+            }
+            reservedFingerprints[selected] = clip.id
+            clip.fingerprint = selected
+            prepared.append(clip)
+        }
+        return prepared
+    }
+
+    private func fingerprintOwner(_ fingerprint: String) throws -> String? {
+        try withStatement(
+            "SELECT id FROM clips WHERE fingerprint = ? LIMIT 1",
+            operation: "checking synced clip fingerprint"
+        ) { statement in
+            try bind(fingerprint, to: statement, at: 1)
+            let result = sqlite3_step(statement)
+            if result == SQLITE_DONE { return nil }
+            guard result == SQLITE_ROW else {
+                throw sqliteError(operation: "checking synced clip fingerprint", code: result)
+            }
+            return columnText(statement, at: 0)
+        }
+    }
+
+    private func unpinClips(boardID: String) throws {
+        try withStatement(
+            "UPDATE clips SET board_id = NULL, board_position = NULL, last_used_at = ? WHERE board_id = ?",
+            operation: "unpinning synced pinboard clips"
+        ) { statement in
+            try bind(Date().timeIntervalSince1970, to: statement, at: 1)
+            try bind(boardID, to: statement, at: 2)
+            try expectDone(statement, operation: "unpinning synced pinboard clips")
+        }
+    }
+
+    private func syncedBoardPayloadBytes(id: String) throws -> Int64 {
+        try withStatement(
+            "SELECT COALESCE(SUM(LENGTH(payload)), 0) FROM clips WHERE board_id = ?",
+            operation: "measuring synced pinboard payloads"
+        ) { statement in
+            try bind(id, to: statement, at: 1)
+            let result = sqlite3_step(statement)
+            guard result == SQLITE_ROW else {
+                throw sqliteError(operation: "measuring synced pinboard payloads", code: result)
+            }
+            return sqlite3_column_int64(statement, 0)
+        }
+    }
+
+    private func deleteSyncedBoardRow(id: String) throws {
+        try withStatement("DELETE FROM boards WHERE id = ?", operation: "deleting synced pinboard") { statement in
+            try bind(id, to: statement, at: 1)
+            try expectDone(statement, operation: "deleting synced pinboard")
+        }
+    }
+
+    private func stageSyncedClipFingerprints(_ ids: [String]) throws {
+        guard !ids.isEmpty else { return }
+        let nonce = UUID().uuidString
+        try withStatement(
+            "UPDATE clips SET fingerprint = ? WHERE id = ?",
+            operation: "staging synced clip fingerprints"
+        ) { statement in
+            for id in ids {
+                sqlite3_reset(statement)
+                sqlite3_clear_bindings(statement)
+                try bind("sync-staging:\(nonce):\(id)", to: statement, at: 1)
+                try bind(id, to: statement, at: 2)
+                try expectDone(statement, operation: "staging synced clip fingerprints")
+            }
+        }
+    }
+
+    private func storeSyncedClip(_ clip: Clip) throws {
+        let payload = try encodedPayload(for: clip)
+        let sql = """
+            INSERT INTO clips (
+                id, kind, title, text, source_app, source_bundle_id,
+                created_at, last_used_at, copy_count, fingerprint, board_id,
+                custom_title, board_position, payload
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                kind = excluded.kind,
+                title = excluded.title,
+                text = excluded.text,
+                source_app = excluded.source_app,
+                source_bundle_id = excluded.source_bundle_id,
+                created_at = excluded.created_at,
+                last_used_at = excluded.last_used_at,
+                copy_count = excluded.copy_count,
+                fingerprint = excluded.fingerprint,
+                board_id = excluded.board_id,
+                custom_title = excluded.custom_title,
+                board_position = excluded.board_position,
+                payload = excluded.payload
+            """
+        try withStatement(sql, operation: "storing synced clip") { statement in
+            try bind(clip.id, to: statement, at: 1)
+            try bind(clip.kind.rawValue, to: statement, at: 2)
+            try bind(clip.title, to: statement, at: 3)
+            try bind(clip.text, to: statement, at: 4)
+            try bind(clip.sourceApp, to: statement, at: 5)
+            try bind(clip.sourceBundleID, to: statement, at: 6)
+            try bind(clip.createdAt.timeIntervalSince1970, to: statement, at: 7)
+            try bind(clip.lastUsedAt.timeIntervalSince1970, to: statement, at: 8)
+            try bind(clip.copyCount, to: statement, at: 9)
+            try bind(clip.fingerprint, to: statement, at: 10)
+            try bind(clip.boardID, to: statement, at: 11)
+            try bind(clip.customTitle, to: statement, at: 12)
+            try bind(clip.boardPosition, to: statement, at: 13)
+            try bind(payload, to: statement, at: 14)
+            try expectDone(statement, operation: "storing synced clip")
+        }
+    }
+
     private func validateUniqueIDs(_ ids: [String], label: String) throws {
         guard Set(ids).count == ids.count else {
             throw HistoryDatabaseError.invalidOrdering(reason: "\(label) contain duplicate IDs")
@@ -730,6 +1034,28 @@ actor HistoryDatabase {
         )
         guard Set(ids).isSubset(of: Set(existing)) else {
             throw HistoryDatabaseError.invalidOrdering(reason: "clip assignment contains unknown IDs")
+        }
+    }
+
+    private func boardPlacements(for ids: [String]) throws -> [ClipBoardPlacement] {
+        try withStatement(
+            "SELECT board_id, board_position FROM clips WHERE id = ?",
+            operation: "capturing clip pinboards"
+        ) { statement in
+            try ids.map { id in
+                sqlite3_reset(statement)
+                sqlite3_clear_bindings(statement)
+                try bind(id, to: statement, at: 1)
+                let result = sqlite3_step(statement)
+                guard result == SQLITE_ROW else {
+                    throw HistoryDatabaseError.invalidOrdering(reason: "clip assignment contains unknown IDs")
+                }
+                return ClipBoardPlacement(
+                    clipID: id,
+                    boardID: columnOptionalText(statement, at: 0),
+                    boardPosition: columnOptionalInt(statement, at: 1)
+                )
+            }
         }
     }
 
@@ -797,11 +1123,40 @@ actor HistoryDatabase {
         try updateBoardPositions(ids)
     }
 
-    private func transaction(_ body: () throws -> Void) throws {
+    private func normalizeClipPositions(in boardID: String) throws {
+        let ids = try withStatement(
+            """
+            SELECT id FROM clips
+            WHERE board_id = ?
+            ORDER BY board_position IS NULL ASC, board_position ASC,
+                     last_used_at DESC, created_at DESC, id ASC
+            """,
+            operation: "loading pinboard clips for normalization"
+        ) { statement in
+            try bind(boardID, to: statement, at: 1)
+            return try identifiers(from: statement, operation: "loading pinboard clips for normalization")
+        }
+        try withStatement(
+            "UPDATE clips SET board_position = ? WHERE id = ? AND board_id = ?",
+            operation: "normalizing pinboard clips"
+        ) { statement in
+            for (position, id) in ids.enumerated() {
+                sqlite3_reset(statement)
+                sqlite3_clear_bindings(statement)
+                try bind(position, to: statement, at: 1)
+                try bind(id, to: statement, at: 2)
+                try bind(boardID, to: statement, at: 3)
+                try expectDone(statement, operation: "normalizing pinboard clips")
+            }
+        }
+    }
+
+    private func transaction<T>(_ body: () throws -> T) throws -> T {
         try execute("BEGIN IMMEDIATE", operation: "starting transaction")
         do {
-            try body()
+            let result = try body()
             try execute("COMMIT", operation: "committing transaction")
+            return result
         } catch {
             try? execute("ROLLBACK", operation: "rolling back transaction")
             throw error

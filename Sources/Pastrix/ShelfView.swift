@@ -28,6 +28,7 @@ struct ShelfView: View {
         VStack(spacing: 0) {
             ShelfHeader(
                 model: model,
+                sync: model.pinboardSync,
                 searchFocused: $searchFocused,
                 onNewBoard: { newBoardContext = NewBoardContext(assigning: []) },
                 onNewSnippet: { showingNewSnippet = true },
@@ -207,7 +208,10 @@ struct ShelfView: View {
                     range: modifiers.contains(.shift)
                 )
             },
-            onDragSelect: { searchFocused = false; model.select(clip) },
+            onDrag: {
+                searchFocused = false
+                return model.dragIDs(startingWith: clip)
+            },
             onCopy: { act(on: clip) { model.copySelected() } },
             onCopyPlain: { act(on: clip) { model.copySelected(plain: true) } },
             onPaste: { act(on: clip) { model.pasteSelected() } },
@@ -242,6 +246,7 @@ struct ShelfView: View {
 
 private struct ShelfHeader: View {
     @ObservedObject var model: AppModel
+    @ObservedObject var sync: PinboardSyncController
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var searchFocused: FocusState<Bool>.Binding
     let onNewBoard: () -> Void
@@ -249,6 +254,7 @@ private struct ShelfHeader: View {
     let onEditBoard: (Pinboard) -> Void
     let onDeleteBoard: (Pinboard) -> Void
     @State private var targetedBoardID: String?
+    @State private var isClipboardDropTarget = false
 
     var body: some View {
         HStack(spacing: 14) {
@@ -258,11 +264,12 @@ private struct ShelfHeader: View {
                         title: "Clipboard",
                         symbol: "clipboard.fill",
                         color: .blue,
-                        isSelected: model.selectedBoardID == nil
+                        isSelected: model.selectedBoardID == nil,
+                        isDropTarget: isClipboardDropTarget
                     ) {
                         model.selectedBoardID = nil
                     }
-                    .onDrop(of: [PastrixDragType.clipIDs.identifier], isTargeted: nil) { providers in
+                    .onDrop(of: [PastrixDragType.clipIDs.identifier], isTargeted: $isClipboardDropTarget) { providers in
                         loadClipIDs(from: providers) { ids in model.assign(ids: ids, to: nil) }
                     }
 
@@ -271,7 +278,9 @@ private struct ShelfHeader: View {
                             title: board.name,
                             symbol: board.icon,
                             color: Color(pastrixHex: board.color),
-                            isSelected: model.selectedBoardID == board.id
+                            isSelected: model.selectedBoardID == board.id,
+                            isDropTarget: targetedBoardID == board.id,
+                            isSynced: sync.isEnabled && UUID(uuidString: board.id).map { sync.selectedBoardIDs.contains($0) } == true
                         ) {
                             model.selectedBoardID = board.id
                         }
@@ -288,7 +297,6 @@ private struct ShelfHeader: View {
                                 model.reorderBoard(draggedID: id, to: board.id)
                             }
                         }
-                        .background(Color(pastrixHex: board.color).opacity(targetedBoardID == board.id ? 0.2 : 0), in: Capsule())
                         .contextMenu {
                             Button("Edit Pinboard…", systemImage: "slider.horizontal.3") {
                                 onEditBoard(board)
@@ -380,6 +388,8 @@ private struct BoardTab: View {
     var symbol: String?
     let color: Color
     let isSelected: Bool
+    var isDropTarget = false
+    var isSynced = false
     let action: () -> Void
 
     var body: some View {
@@ -396,23 +406,34 @@ private struct BoardTab: View {
                 }
                 Text(title)
                     .lineLimit(1)
+                if isSynced {
+                    Image(systemName: "lock.icloud")
+                        .font(.system(size: 11))
+                        .accessibilityLabel("Selected for encrypted iCloud sync")
+                }
             }
             .font(.system(size: 13, weight: isSelected ? .semibold : .medium))
             .foregroundStyle(isSelected ? .primary : .secondary)
             .padding(.horizontal, 10)
             .frame(height: 30)
-            .background(isSelected ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.clear))
+            .background(isDropTarget ? AnyShapeStyle(color.opacity(0.18)) : (isSelected ? AnyShapeStyle(.regularMaterial) : AnyShapeStyle(.clear)))
             .clipShape(Capsule())
             .overlay {
                 Capsule()
-                    .strokeBorder(isSelected ? color.opacity(0.42) : .clear, lineWidth: 1)
+                    .strokeBorder(
+                        isDropTarget ? color : (isSelected ? color.opacity(0.42) : .clear),
+                        lineWidth: isDropTarget ? 2 : 1
+                    )
             }
         }
         .buttonStyle(.plain)
         .background(isHovered && !isSelected ? Color.primary.opacity(0.045) : .clear, in: Capsule())
+        .scaleEffect(reduceMotion ? 1 : (isDropTarget ? 1.05 : 1))
         .onHover { isHovered = $0 }
         .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: isHovered)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: isDropTarget)
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .help(isSynced ? "This pinboard is selected for encrypted iCloud sync. New assignments have a brief Undo window before upload." : "Drag clips here to organize them")
     }
 }
 
@@ -466,7 +487,7 @@ private struct ClipCard: View {
     let canReorder: Bool
     let boards: [Pinboard]
     let onSelect: () -> Void
-    let onDragSelect: () -> Void
+    let onDrag: () -> [String]
     let onCopy: () -> Void
     let onCopyPlain: () -> Void
     let onPaste: () -> Void
@@ -522,8 +543,9 @@ private struct ClipCard: View {
         .simultaneousGesture(TapGesture(count: 2).onEnded { onPaste() })
         .onHover { isHovered = $0 }
         .onDrag {
-            if !isSelected { onDragSelect() }
-            return clip.dragItemProvider(ids: draggedIDs)
+            clip.dragItemProvider(ids: onDrag())
+        } preview: {
+            ClipDragPreview(count: draggedIDs.count)
         }
         .onDrop(of: [PastrixDragType.clipIDs.identifier], isTargeted: $isDropTarget) { providers in
             loadClipIDs(from: providers) { ids in
@@ -656,6 +678,21 @@ private struct ClipCard: View {
             .disabled(!canReorder)
         Divider()
         Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+    }
+}
+
+private struct ClipDragPreview: View {
+    let count: Int
+
+    var body: some View {
+        Label("\(count) \(count == 1 ? "clip" : "clips")", systemImage: "square.stack.3d.up.fill")
+            .font(.system(size: 13, weight: .semibold))
+            .padding(.horizontal, 13)
+            .frame(height: 38)
+            .foregroundStyle(.primary)
+            .background(.regularMaterial, in: Capsule())
+            .overlay { Capsule().strokeBorder(Color.accentColor.opacity(0.45)) }
+            .shadow(color: .black.opacity(0.14), radius: 8, y: 3)
     }
 }
 
@@ -819,6 +856,11 @@ private struct ShelfFooter: View {
                 Text(status)
                     .lineLimit(1)
                     .foregroundStyle(.secondary)
+                if model.canUndo {
+                    Button("Undo") { model.undoLastAction() }
+                        .buttonStyle(.borderless)
+                        .help("Undo the last deletion or pinboard assignment")
+                }
             } else if model.isDemo {
                 Label("Demo library", systemImage: "sparkles")
                     .foregroundStyle(.purple)
@@ -1215,7 +1257,7 @@ private struct PastrixSettingsView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
                     Text("Pastrix Settings").font(.title2.weight(.semibold))
-                    Text("Clipboard history stays on this Mac.")
+                    Text("Your clipboard, organized your way.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -1234,7 +1276,7 @@ private struct PastrixSettingsView: View {
                 VStack(spacing: 20) {
                     SettingsSection(title: "History", symbol: "clock.arrow.circlepath") {
                         Stepper(value: $model.settings.maxItems, in: 100...50_000, step: 100) {
-                            LabeledContent("Maximum clips") {
+                            LabeledContent("Maximum unpinned clips") {
                                 Text(model.settings.maxItems.formatted())
                                     .foregroundStyle(.secondary)
                             }
@@ -1286,8 +1328,10 @@ private struct PastrixSettingsView: View {
                             .accessibilityLabel("Ignored application bundle identifiers")
                     }
 
+                    PinboardSyncSettings(sync: model.pinboardSync)
+
                     SettingsSection(title: "Data", symbol: "externaldrive") {
-                        Text("History and settings are stored locally. Pastrix does not send clipboard contents to a server.")
+                        Text("History and settings are stored locally. Only explicitly selected pinboards can sync in an iCloud-enabled build.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         HStack {

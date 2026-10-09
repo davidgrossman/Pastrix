@@ -271,7 +271,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
                 switch event.charactersIgnoringModifiers {
                 case "c": model.copySelected(plain: event.modifierFlags.contains(.shift)); return nil
                 case "a": model.selectAll(); return nil
-                case "z": model.undoDelete(); return nil
+                case "z": model.undoLastAction(); return nil
                 default: break
                 }
             }

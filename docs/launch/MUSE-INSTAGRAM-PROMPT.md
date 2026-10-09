@@ -11,13 +11,13 @@ Create a finished Instagram carousel, caption, and per-slide alt text for **Past
 - Roadmap: https://github.com/davidgrossman/Pastrix/blob/main/ROADMAP.md
 - Brand icon: `docs/assets/pastrix-icon.png`, the supplied purple clipboard P icon
 
-Use the public website, repository, and 1.2.2 release notes as the source of truth. Pastrix 1.2.2 is a rebrand release; do not present the new name or icon as a new clipboard feature. Earlier versions were named Paster.
+Use the public website, repository, and 1.3.0 release notes as the source of truth. Pastrix 1.3.0 adds grouped pinboard dragging, assignment Undo, and a DMG installer. Earlier versions were named Paster.
 
 ## Product facts
 
-Pastrix is a native Apple Silicon clipboard manager for macOS 14 or later. It offers searchable local history, a visual shelf, colored pinboards, reusable snippets, clip renaming, native sharing, a five-item Quick Menu, and a session-only paste queue. History stays in a local SQLite database. There is no account, telemetry, advertising, or cloud history sync.
+Pastrix is a native Apple Silicon clipboard manager for macOS 14 or later. It offers searchable local history, a visual shelf, colored pinboards, reusable snippets, clip renaming, native sharing, a five-item Quick Menu, and a session-only paste queue. History stays in a local SQLite database. The public download has no telemetry or advertising and stays local-only. Encrypted pinboard sync is implemented in source but requires a provisioned build and live verification; do not advertise it as available in this download.
 
-The downloadable preview is ad-hoc signed and **not** Developer ID signed or Apple-notarized. macOS may block its first launch. Direct paste and ordinary-⌘V queue delivery require Accessibility permission. The database is readable by the user's macOS account and is not separately encrypted by Pastrix. Update checks contact GitHub only when the user asks. The app has no Intel download, App Store release, iOS app, OCR, AI, MCP server, or cross-device sync.
+The downloadable preview is ad-hoc signed and **not** Developer ID signed or Apple-notarized. macOS may block its first launch. Direct paste and ordinary-⌘V queue delivery require Accessibility permission. The database is readable by the user's macOS account and is not separately encrypted by Pastrix. Update checks contact GitHub only when the user asks. The app has no Intel download, App Store release, iOS app, OCR, AI, MCP server, or enabled cross-device sync in the public preview.
 
 ## Deliverable
 
@@ -39,7 +39,7 @@ Your clipboard remembers one thing. Pastrix helps you find the things worth keep
 
 Pastrix is a native Mac clipboard manager with searchable history, colorful pinboards, reusable snippets, clip renaming, sharing, and a paste queue. Clipboard history stays on your Mac—no account or cloud history sync.
 
-The 1.2.2 public preview is available for Apple Silicon. It is MIT-licensed and built with Swift, SwiftUI, AppKit, and SQLite.
+The 1.3.0 public preview is available for Apple Silicon. It is MIT-licensed and built with Swift, SwiftUI, AppKit, and SQLite.
 
 This is an early preview: the downloadable app is ad-hoc signed and not Apple-notarized, and compatibility testing is still growing. Read the installation notes before trying it. Direct paste requires macOS Accessibility permission.
 
@@ -60,7 +60,7 @@ Write specific alt text for every finished slide. Describe the headline, actual 
 
 ## Claims to avoid
 
-Do not claim App Store availability, Apple notarization, Intel support, complete macOS-version coverage, encrypted clipboard storage, flawless paste delivery, an independent security audit, cloud sync, iOS support, OCR, AI, MCP features, or new functionality in 1.2.2. On-demand update checks contact GitHub, so do not claim that the app makes no network requests at all. “History stays local” is accurate; “your data can never leave” is not, because users can export or share clips.
+Do not claim App Store availability, Apple notarization, Intel support, complete macOS-version coverage, encrypted clipboard storage, flawless paste delivery, an independent security audit, cloud sync, iOS support, OCR, AI, MCP features, or live-verified sync. On-demand update checks contact GitHub, so do not claim that the app makes no network requests at all. “History stays local” is accurate; “your data can never leave” is not, because users can export or share clips.
 
 ## Review checklist
 

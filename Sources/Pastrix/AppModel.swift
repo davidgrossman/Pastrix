@@ -26,19 +26,29 @@ final class AppModel: ObservableObject {
     @Published var renamingClip: Clip?
     @Published private(set) var queue: [Clip] = []
     @Published private(set) var isPastingQueue = false
+    @Published private(set) var canUndo = false
     private var pasteQueue = PasteQueue()
     private var selectionAnchor: String?
     let sharingService = SharingService()
     let isDemo: Bool
     let dataDirectory: URL
     let database: HistoryDatabase
+    let pinboardSync: PinboardSyncController
     let clipboard: ClipboardService
     var onDismiss: (() -> Void)?
     var onResize: (() -> Void)?
     var targetApplication: NSRunningApplication?
     private var refreshTask: Task<Void, Never>?
     private var statusTask: Task<Void, Never>?
-    private var deletedClips: [Clip] = []
+    private var assignmentTask: Task<Void, Never>?
+    private var latestAssignmentID: UUID?
+    private enum UndoAction {
+        case deletion([Clip])
+        case boardAssignment(BoardAssignmentUndo)
+    }
+    private var undoAction: UndoAction? {
+        didSet { canUndo = undoAction != nil }
+    }
     var selectedClip: Clip? { clips.first { selectedIDs.contains($0.id) } }
     var accessibilityGranted: Bool { AXIsProcessTrusted() }
     var selectedClips: [Clip] { clips.filter { selectedIDs.contains($0.id) } }
@@ -50,7 +60,9 @@ final class AppModel: ObservableObject {
         dataDirectory = demo ? FileManager.default.temporaryDirectory.appendingPathComponent("Pastrix-Demo-\(ProcessInfo.processInfo.processIdentifier)") : base.appendingPathComponent(LegacyCompatibility.applicationSupportDirectoryName)
         try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         database = try HistoryDatabase(url: dataDirectory.appendingPathComponent("history.sqlite"))
+        pinboardSync = PinboardSyncController(database: database, directory: dataDirectory, demo: demo)
         clipboard = ClipboardService(pasteboard: demo ? NSPasteboard(name: .init("Pastrix-Demo")) : .general)
+        pinboardSync.onChange = { [weak self] in self?.refresh() }
         clipboard.ignoredBundleIDs = Set(settings.ignoredBundleIDs.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) })
         clipboard.onCapture = { [weak self] clip in self?.capture(clip) }
         clipboard.onSkip = { [weak self] message in self?.notify(message) }
@@ -102,21 +114,37 @@ final class AppModel: ObservableObject {
         }
     }
     func select(_ clip: Clip, extending: Bool = false, range: Bool = false) {
-        if range, let anchor = selectionAnchor,
-           let start = clips.firstIndex(where: { $0.id == anchor }),
-           let end = clips.firstIndex(where: { $0.id == clip.id }) {
-            selectedIDs = Set(clips[min(start, end)...max(start, end)].map(\.id))
-        } else if extending {
-            if selectedIDs.contains(clip.id) { selectedIDs.remove(clip.id) } else { selectedIDs.insert(clip.id) }
-            selectionAnchor = clip.id
-        } else { selectedIDs = [clip.id]; selectionAnchor = clip.id }
+        let result = ClipSelectionRules.selecting(
+            clip.id,
+            orderedIDs: clips.map(\.id),
+            selectedIDs: selectedIDs,
+            anchorID: selectionAnchor,
+            extending: extending,
+            range: range
+        )
+        selectedIDs = result.selectedIDs
+        selectionAnchor = result.anchorID
     }
     func moveSelection(_ delta: Int) {
         guard !clips.isEmpty else { return }
         let current = clips.firstIndex { selectedIDs.contains($0.id) } ?? 0
-        selectedIDs = [clips[min(max(current + delta, 0), clips.count - 1)].id]
+        let id = clips[min(max(current + delta, 0), clips.count - 1)].id
+        selectedIDs = [id]
+        selectionAnchor = id
     }
-    func selectAll() { selectedIDs = Set(clips.map(\.id)) }
+    func selectAll() {
+        selectedIDs = Set(clips.map(\.id))
+        if selectionAnchor == nil { selectionAnchor = clips.first?.id }
+    }
+    func dragIDs(startingWith clip: Clip) -> [String] {
+        let ids = ClipSelectionRules.dragIDs(
+            startingWith: clip.id,
+            orderedIDs: clips.map(\.id),
+            selectedIDs: selectedIDs
+        )
+        if !selectedIDs.contains(clip.id) { select(clip) }
+        return ids
+    }
     func copySelected(plain: Bool = false) {
         guard clipboard.write(selectedClips, plain: plain) else { notify("Select an item with content to copy."); return }
         notify(isDemo ? "Copied to the isolated demo clipboard" : "Copied · ready to paste")
@@ -212,24 +240,64 @@ final class AppModel: ObservableObject {
         let selected = selectedClips
         guard !selected.isEmpty else { return }
         Task { do {
-            try await database.delete(ids: selected.map(\.id)); deletedClips = selected
+            try await database.delete(ids: selected.map(\.id)); undoAction = .deletion(selected)
             notify("Deleted \(selected.count) item\(selected.count == 1 ? "" : "s") · ⌘Z to undo"); refresh()
         } catch { report(error) } }
     }
-    func undoDelete() {
-        guard !deletedClips.isEmpty else { return }
-        let restoring = deletedClips
-        Task { do {
-            for clip in restoring { try await database.upsert(clip) }
-            deletedClips = []; notify("Restored deleted items"); refresh()
-        } catch { report(error) } }
+    func undoLastAction() {
+        guard let action = undoAction else { return }
+        undoAction = nil
+        switch action {
+        case let .deletion(restoring):
+            Task { do {
+                for clip in restoring { try await database.upsert(clip) }
+                notify("Restored deleted items"); refresh()
+            } catch {
+                if undoAction == nil { undoAction = action }
+                report(error)
+            } }
+        case let .boardAssignment(undo):
+            let previous = assignmentTask
+            assignmentTask = Task { do {
+                await previous?.value
+                let restoredCount = try await database.restoreBoardAssignment(undo)
+                pinboardSync.noteLocalBoardAssignment()
+                notify("Restored \(restoredCount) clip\(restoredCount == 1 ? "" : "s") to their previous pinboards")
+                refresh()
+            } catch {
+                if undoAction == nil { undoAction = action }
+                report(error)
+            } }
+        }
     }
-    func assignSelected(to board: String?) { assign(ids: Array(selectedIDs), to: board) }
+    func undoDelete() { undoLastAction() }
+    func assignSelected(to board: String?) {
+        assign(ids: clips.filter { selectedIDs.contains($0.id) }.map(\.id), to: board)
+    }
     func assign(ids: [String], to board: String?) {
-        Task { do {
-            try await database.assign(ids: ids, boardID: board); refresh()
-            notify(board == nil ? "Removed from pinboard" : "Added to pinboard")
-        } catch { report(error) } }
+        guard !ids.isEmpty else { return }
+        let operationID = UUID()
+        latestAssignmentID = operationID
+        let previous = assignmentTask
+        let destinationName = board.flatMap { destination in
+            boards.first(where: { $0.id == destination })?.name
+        }
+        assignmentTask = Task { do {
+            await previous?.value
+            let undo = try await database.assign(ids: ids, boardID: board)
+            undoAction = .boardAssignment(undo)
+            pinboardSync.noteLocalBoardAssignment()
+            refresh()
+            guard latestAssignmentID == operationID else { return }
+            let count = undo.placements.count
+            if let destinationName {
+                notify("Added \(count) clip\(count == 1 ? "" : "s") to \(destinationName) · ⌘Z to undo")
+            } else {
+                notify("Removed \(count) clip\(count == 1 ? "" : "s") from pinboards · ⌘Z to undo")
+            }
+        } catch {
+            if latestAssignmentID == operationID { report(error) }
+        } }
     }
     func addBoard(name: String, color: String, icon: String? = nil, assigning ids: [String] = []) {
         let name = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(60))
@@ -237,7 +305,10 @@ final class AppModel: ObservableObject {
         let board = Pinboard(name: name, color: color, position: boards.count, icon: icon)
         Task { do {
             try await database.saveBoard(board)
-            if !ids.isEmpty { try await database.assign(ids: ids, boardID: board.id) }
+            if !ids.isEmpty {
+                try await database.assign(ids: ids, boardID: board.id)
+                pinboardSync.noteLocalBoardAssignment()
+            }
             selectedBoardID = board.id; refresh()
         } catch { report(error) } }
     }
@@ -275,11 +346,20 @@ final class AppModel: ObservableObject {
         } catch { report(error) } }
     }
     func deleteBoard(_ board: Pinboard) {
+        let deletionWillSync = pinboardSync.isEnabled
+            && UUID(uuidString: board.id).map(pinboardSync.selectedBoardIDs.contains) == true
         let alert = NSAlert(); alert.messageText = "Delete “\(board.name)”?"
-        alert.informativeText = "Its clips will remain in Clipboard history."
+        alert.informativeText = deletionWillSync
+            ? "Its clips will remain in Clipboard history. This pinboard deletion will sync to your other Macs."
+            : "Its clips will remain in Clipboard history."
         alert.addButton(withTitle: "Cancel"); alert.addButton(withTitle: "Delete Pinboard")
         guard alert.runModal() == .alertSecondButtonReturn else { return }
-        Task { do { try await database.deleteBoard(id: board.id); if selectedBoardID == board.id { selectedBoardID = nil }; refresh() } catch { report(error) } }
+        Task { do {
+            try await database.deleteBoard(id: board.id)
+            pinboardSync.noteLocalBoardAssignment()
+            if selectedBoardID == board.id { selectedBoardID = nil }
+            refresh()
+        } catch { report(error) } }
     }
     func newSnippet(text: String, title: String, boardID: String?) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }

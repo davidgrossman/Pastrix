@@ -19,6 +19,16 @@
 - The 1.2.2 release bundle passes strict signature and ZIP integrity checks. Its isolated demo launches as Pastrix and shows the renamed settings panel.
 - Desktop and 390 px mobile layouts were reviewed with the Pastrix icon and adjusted purple palette. Local page assets resolve and the mobile menu remains available.
 
+## Verified 1.3.0 checks
+
+- 87 automated tests pass with synthetic clips and fake CloudKit/Keychain dependencies, including selection, assignment Undo, atomic remote application, conflicts, account/key binding and consent persistence.
+- Synthetic packaging-profile parser tests pass, including string/array environment values and Developer ID rejection of Development.
+- Final release build succeeds. ZIP checksums, strict app signature, DMG integrity, read-only mount, and the app-plus-Applications-link layout pass. The public artifact has no CloudKit container configuration or embedded profile.
+- The isolated demo displayed the shelf and confirmed right-click pinboard assignment with named feedback. Native drag automation could not sustain the item-provider session; physical drag and modifier-click visuals remain manual checks.
+- The updated website was inspected at desktop and 390 px mobile widths, including menu open/close and installation navigation. The 1.3.0 download and sync-availability text agree with the actual local-only artifact.
+- GitLeaks found no secrets in the intended source snapshot. The application bundle contains only its executable, icon, Info.plist and signature. This does not assert that historical commits are free of all metadata.
+- Live CloudKit access, two-Mac replication, shared Keychain delivery, Developer ID distribution and notarization have not been validated. iPhone/iPad are roadmap items only.
+
 ## Known limits
 
 The download is ad-hoc signed, not Developer ID signed or Apple-notarized. It may be blocked by Gatekeeper. No Intel binary is supplied. External-app direct paste, ordinary-Command-V queue delivery, pointer drag/drop, login startup, prolonged capture, sleep/wake, multiple displays and older macOS versions need broader real-world checks.

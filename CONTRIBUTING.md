@@ -30,8 +30,12 @@ Demo mode uses generated content, a temporary database, and a named test pastebo
 - Respect Reduce Motion, keyboard navigation, VoiceOver and both appearances.
 - Keep I/O away from UI rendering. Use the database actor for persistent changes.
 - Add tests for changed behavior, especially migration, retention, clipboard types, permissions and error recovery. Avoid tests that only restate the implementation.
-- Run `swift test` and the bundle build. Explain any untested external-app behavior in the PR.
+- Run `swift test`, `./scripts/build-app.sh`, and `./scripts/build-dmg.sh --skip-build`. Explain any untested external-app behavior in the PR.
 - Never attach real clipboard history, authentication tokens, personal screenshots or raw backups to an issue or PR.
+
+## Sync development
+
+The default build is deliberately local-only. Start with the fake transport and Keychain fixtures in `CloudSyncCoreTests` and `CloudSyncControllerTests`; no Apple Account or real clipboard is needed. Read [the sync contract](docs/ICLOUD-SYNC.md) before changing account binding, encryption, opt-in selection or conflict handling. Live sync requires separately provisioned capabilities and two-device evidence. Do not weaken those gates to make a test pass.
 
 ## Useful first contributions
 

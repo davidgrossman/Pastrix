@@ -2,6 +2,7 @@ name: macOS build and tests
 on:
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
 permissions:
   contents: read
@@ -9,12 +10,23 @@ jobs:
   test:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Show toolchain
         run: swift --version
       - name: Test with synthetic fixtures
         run: swift test
+      - name: Test packaging plist parsing
+        run: ./scripts/test-packaging-plist.sh
       - name: Build app bundle
         run: ./scripts/build-app.sh
       - name: Verify app signature
-        run: codesign --verify --deep --strict dist/Pastrix.app
+        run: |
+          codesign --verify --deep --strict dist/Pastrix.app
+          test ! -e dist/Pastrix.app/Contents/embedded.provisionprofile
+          ! /usr/libexec/PlistBuddy -c 'Print :PastrixCloudKitContainerIdentifier' dist/Pastrix.app/Contents/Info.plist >/dev/null 2>&1
+      - name: Build and verify drag-to-Applications DMG
+        run: |
+          ./scripts/build-dmg.sh --skip-build
+          dmg=(dist/Pastrix-*-macOS-arm64.dmg)
+          test ${#dmg[@]} -eq 1
+          hdiutil verify "${dmg[0]}"

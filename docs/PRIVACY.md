@@ -1,6 +1,6 @@
 # Pastrix's privacy model
 
-- Clipboard history is stored on your Mac in `~/Library/Application Support/Paster/history.sqlite` using SQLite. There is no account, cloud history sync or analytics.
+- Clipboard history is stored on your Mac in `~/Library/Application Support/Paster/history.sqlite` using SQLite. The public preview is local-only and has no analytics. Provisioned builds offer explicit, selected-pinboard encrypted iCloud sync; see [sync availability and security](ICLOUD-SYNC.md).
 - History is **not separately encrypted by Pastrix**. Your macOS account can read it; FileVault protects a locked disk, not a logged-in compromised account.
 - Monitoring starts with newly copied items, not clipboard contents that predate launch. Sensitive clipboard markers and several password-manager apps are excluded by default. Ordinary text containing a secret cannot always be recognized; exclude sensitive apps or pause monitoring.
 - Default limits are 2,000 unpinned items / 30 days, 20 MB per captured item, and approximately 512 MB of unpinned payloads. Pinboard items survive ordinary retention. SQLite may retain freed file space for reuse.
@@ -9,4 +9,5 @@
 - Send Feedback opens a local draft editor. You can save a text draft or choose Open GitHub Issue to open your browser. Draft text is not copied into the URL. Review and submit your own issue; clipboard content is not automatically attached. GitHub's website has its own privacy policies.
 - Native Share sends only the clips you choose through the destination you complete in macOS. Temporary generated share files are cleaned up after completion/cancellation; file-reference clips point to the original file.
 - JSON exports contain readable clipboard content. Keep exports private and never attach them to public reports.
+- Optional sync encrypts board contents before upload and uses synchronizable Keychain for the key. CloudKit still sees record and network metadata. Disabling sync retains existing cloud copies; local storage is not encrypted by this feature. No data is uploaded merely by opening settings.
 - No software can guarantee perfect secret detection or zero data loss. Test with synthetic clips and keep important material in its source application.
