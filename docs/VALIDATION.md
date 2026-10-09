@@ -19,13 +19,13 @@
 - The 1.2.2 release bundle passes strict signature and ZIP integrity checks. Its isolated demo launches as Pastrix and shows the renamed settings panel.
 - Desktop and 390 px mobile layouts were reviewed with the Pastrix icon and adjusted purple palette. Local page assets resolve and the mobile menu remains available.
 
-## Verified 1.3.0 checks
+## Verified 1.3.1 checks
 
 - 87 automated tests pass with synthetic clips and fake CloudKit/Keychain dependencies, including selection, assignment Undo, atomic remote application, conflicts, account/key binding and consent persistence.
 - Synthetic packaging-profile parser tests pass, including string/array environment values and Developer ID rejection of Development.
 - Final release build succeeds. ZIP checksums, strict app signature, DMG integrity, read-only mount, and the app-plus-Applications-link layout pass. The public artifact has no CloudKit container configuration or embedded profile.
 - The isolated demo displayed the shelf and confirmed right-click pinboard assignment with named feedback. Native drag automation could not sustain the item-provider session; physical drag and modifier-click visuals remain manual checks.
-- The updated website was inspected at desktop and 390 px mobile widths, including menu open/close and installation navigation. The 1.3.0 download and sync-availability text agree with the actual local-only artifact.
+- The updated website was inspected at desktop and 390 px mobile widths, including menu open/close and installation navigation. The 1.3.1 download and sync-availability text agree with the actual local-only artifact.
 - GitLeaks found no secrets in the intended source snapshot. The application bundle contains only its executable, icon, Info.plist and signature. This does not assert that historical commits are free of all metadata.
 - Live CloudKit access, two-Mac replication, shared Keychain delivery, Developer ID distribution and notarization have not been validated. iPhone/iPad are roadmap items only.
 
@@ -36,3 +36,5 @@ The download is ad-hoc signed, not Developer ID signed or Apple-notarized. It ma
 The baseline results were recorded for Paster 1.2.1; the separate rebrand checks above were verified for Pastrix 1.2.2. Version 1.2.2 changes the name and icon without claiming new functionality. Prior local releases and their demo observations are documented in VALIDATION-1.0.md, VALIDATION-1.1.md and VALIDATION-1.2.md. Those historical versions used a local update check; public versions 1.2.1 and later use GitHub releases.
 
 CI is configured to run tests and bundle validation on an Apple Silicon macOS runner. Its actual per-commit result is shown in the repository Actions tab; configuration alone is not proof of a passing run.
+
+The retained v1.3.0 candidate tag failed GitHub CI on an ambiguous Data initializer accepted by the newer local compiler. Version 1.3.1 uses an explicit byte-buffer initializer; no 1.3.0 binaries were published.

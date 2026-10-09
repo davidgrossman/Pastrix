@@ -11,7 +11,7 @@ Create a finished Instagram carousel, caption, and per-slide alt text for **Past
 - Roadmap: https://github.com/davidgrossman/Pastrix/blob/main/ROADMAP.md
 - Brand icon: `docs/assets/pastrix-icon.png`, the supplied purple clipboard P icon
 
-Use the public website, repository, and 1.3.0 release notes as the source of truth. Pastrix 1.3.0 adds grouped pinboard dragging, assignment Undo, and a DMG installer. Earlier versions were named Paster.
+Use the public website, repository, and 1.3.1 release notes as the source of truth. Pastrix 1.3.1 adds grouped pinboard dragging, assignment Undo, and a DMG installer. Earlier versions were named Paster.
 
 ## Product facts
 
@@ -39,7 +39,7 @@ Your clipboard remembers one thing. Pastrix helps you find the things worth keep
 
 Pastrix is a native Mac clipboard manager with searchable history, colorful pinboards, reusable snippets, clip renaming, sharing, and a paste queue. Clipboard history stays on your Mac—no account or cloud history sync.
 
-The 1.3.0 public preview is available for Apple Silicon. It is MIT-licensed and built with Swift, SwiftUI, AppKit, and SQLite.
+The 1.3.1 public preview is available for Apple Silicon. It is MIT-licensed and built with Swift, SwiftUI, AppKit, and SQLite.
 
 This is an early preview: the downloadable app is ad-hoc signed and not Apple-notarized, and compatibility testing is still growing. Read the installation notes before trying it. Direct paste requires macOS Accessibility permission.
 

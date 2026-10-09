@@ -172,3 +172,5 @@ The release was held while the following changes were implemented and tested. Cl
 Remaining recommendations are tracked in [the roadmap](../ROADMAP.md): change notifications, per-clip encryption, shared Keychain migration, key rotation/recovery, cloud erasure, schema evolution, stable-toolchain release provenance, broader device testing and mobile companions. Private vulnerability reporting is enabled on GitHub. Native grouped pointer dragging still needs a physical manual pass; the automation could not sustain the drag session.
 
 The final local suite passes 87 tests; packaging parser tests and the rebuilt DMG checks also pass. See [validation](VALIDATION.md) for final test/build evidence and [sync setup](ICLOUD-SYNC.md) for account-dependent acceptance gates. The public DMG remains explicitly local-only and unnotarized.
+
+GitHub CI subsequently identified a compiler-overload ambiguity in the reviewed candidate. The correction is shipped as 1.3.1; the original 1.3.0 tag is retained without release binaries.

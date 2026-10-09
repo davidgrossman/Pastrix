@@ -1,12 +1,10 @@
-> Unpublished candidate: GitHub CI found a compiler compatibility issue before binaries were released. Use [1.3.1](RELEASE-1.3.1.md) instead.
-
-# Pastrix 1.3.0 — pinboards with less friction
+# Pastrix 1.3.1 — pinboards with less friction
 
 Drag a clip onto a pinboard name, or Command-click individual clips / Shift-click a range and drag them together. The destination highlights, the drag preview shows the group count, and confirmation names the destination. Command-Z or Undo restores the previous pinboard placement. Right-click and the clip menu remain available. Unpinning refreshes clip recency, and Undo reports how many clips were actually restored.
 
 ## Download and install
 
-Choose `Pastrix-1.3.0-macOS-arm64.dmg`, open it, and drag Pastrix onto Applications. A ZIP is also provided. Verify the matching `.sha256` file with `shasum -a 256 -c <download-name>.sha256` before installing.
+Choose `Pastrix-1.3.1-macOS-arm64.dmg`, open it, and drag Pastrix onto Applications. A ZIP is also provided. Verify the matching `.sha256` file with `shasum -a 256 -c <download-name>.sha256` before installing.
 
 This early preview targets Apple Silicon and macOS 14+. It is **ad-hoc signed, not notarized**. Use macOS's per-app Open / Open Anyway flow if needed; do not disable Gatekeeper globally. Quit older copies before installing. The legacy bundle identifier and history location are preserved.
 
@@ -21,3 +19,5 @@ Finder file references cannot sync as portable files. Disabling sync retains exi
 ## Next
 
 Native iPhone/iPad companions, mobile sharing, accessibility/appearance coverage, and broader signed distribution are on the [roadmap](../ROADMAP.md). No mobile binary, AI service, MCP server or CLI is included in this release.
+
+Version 1.3.1 also fixes a Swift compiler compatibility issue found by GitHub CI before public binaries were released. The 1.3.0 tag is retained as an unpublished candidate.

@@ -2,7 +2,7 @@
 
 ## Availability
 
-Version 1.3.0 includes the Mac-to-Mac sync implementation and settings. **The public ad-hoc-signed download remains local-only.** Live iCloud sync requires an Apple-provisioned build, a deployed CloudKit schema, and two-Mac acceptance testing. Those account-dependent steps have not been completed for this preview. The app checks its signed capabilities before constructing a CloudKit container and explains when sync is unavailable.
+Version 1.3.1 includes the Mac-to-Mac sync implementation and settings. **The public ad-hoc-signed download remains local-only.** Live iCloud sync requires an Apple-provisioned build, a deployed CloudKit schema, and two-Mac acceptance testing. Those account-dependent steps have not been completed for this preview. The app checks its signed capabilities before constructing a CloudKit container and explains when sync is unavailable.
 
 There is no iPhone or iPad app yet. Mobile companions are [future work](../ROADMAP.md).
 

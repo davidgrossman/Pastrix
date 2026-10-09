@@ -12,15 +12,15 @@ Pastrix is a native clipboard manager for macOS. It keeps recent clips in a visu
 
 ![Pastrix’s visual clipboard shelf showing text, links, colors, and images](docs/assets/paster-shelf.jpg)
 
-> **Early public preview.** Pastrix 1.3.0 is built for Apple Silicon Macs running macOS 14 or later. The download is ad-hoc signed and is not notarized.
+> **Early public preview.** Pastrix 1.3.1 is built for Apple Silicon Macs running macOS 14 or later. The download is ad-hoc signed and is not notarized.
 
 ## Download
 
-**[Download Pastrix 1.3.0 for Apple Silicon](https://github.com/davidgrossman/Pastrix/releases/download/v1.3.0/Pastrix-1.3.0-macOS-arm64.dmg)**
+**[Download Pastrix 1.3.1 for Apple Silicon](https://github.com/davidgrossman/Pastrix/releases/download/v1.3.1/Pastrix-1.3.1-macOS-arm64.dmg)**
 
 You can also browse [all releases](https://github.com/davidgrossman/Pastrix/releases) or [visit the project site](https://davidgrossman.github.io/Pastrix/).
 
-Download [the DMG checksum](https://github.com/davidgrossman/Pastrix/releases/download/v1.3.0/Pastrix-1.3.0-macOS-arm64.dmg.sha256) beside the DMG, then run `shasum -a 256 -c Pastrix-1.3.0-macOS-arm64.dmg.sha256` in that folder to verify it.
+Download [the DMG checksum](https://github.com/davidgrossman/Pastrix/releases/download/v1.3.1/Pastrix-1.3.1-macOS-arm64.dmg.sha256) beside the DMG, then run `shasum -a 256 -c Pastrix-1.3.1-macOS-arm64.dmg.sha256` in that folder to verify it.
 
 Open the DMG, drag **Pastrix.app** onto **Applications**, eject the disk image, then open the app. If macOS blocks it, use **System Settings → Privacy & Security → Open Anyway** for this app. Older macOS versions may also offer Control-click → Open.
 
@@ -102,6 +102,6 @@ Pastrix is available under the [MIT License](LICENSE).
 | `resources` | App metadata, Pastrix icon master, generated iconset, and `.icns` bundle icon |
 | `docs` | Architecture, privacy, release notes and the GitHub Pages showcase |
 
-Automated tests use synthetic clipboard and sync fixtures. The target remains macOS 14+ on Apple Silicon; no Intel download is supplied. Live two-Mac CloudKit sync, notarized installation, older systems, external-app paste, prolonged use and multiple displays require broader validation. See [release notes](docs/RELEASE-1.3.0.md), [architecture](docs/ARCHITECTURE.md), and [privacy details](docs/PRIVACY.md), and the [Claude Code review with fix dispositions](docs/REVIEW-1.3.0.md).
+Automated tests use synthetic clipboard and sync fixtures. The target remains macOS 14+ on Apple Silicon; no Intel download is supplied. Live two-Mac CloudKit sync, notarized installation, older systems, external-app paste, prolonged use and multiple displays require broader validation. See [release notes](docs/RELEASE-1.3.1.md), [architecture](docs/ARCHITECTURE.md), and [privacy details](docs/PRIVACY.md), and the [Claude Code review with fix dispositions](docs/REVIEW-1.3.0.md).
 
 Pastrix is an independent project inspired by visual clipboard workflows. It is not affiliated with Paste, Clipbara or Apple. No Paste or Clipbara source code or branding is included. OCR, AI and MCP are not implemented. iPhone and iPad companion apps are planned; no mobile app is included.

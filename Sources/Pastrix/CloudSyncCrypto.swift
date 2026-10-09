@@ -14,7 +14,7 @@ struct CloudSyncKeyMaterial: Sendable, Equatable {
     static func generate() -> CloudSyncKeyMaterial {
         // CryptoKit's SymmetricKey uses the system CSPRNG.
         let key = SymmetricKey(size: .bits256)
-        return try! CloudSyncKeyMaterial(identifier: UUID(), rawBytes: key.withUnsafeBytes(Data.init))
+        return try! CloudSyncKeyMaterial(identifier: UUID(), rawBytes: key.withUnsafeBytes { bytes in Data(bytes: bytes.baseAddress!, count: bytes.count) })
     }
 }
 
