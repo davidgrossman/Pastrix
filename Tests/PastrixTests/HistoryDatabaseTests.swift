@@ -506,6 +506,27 @@ final class HistoryDatabaseTests: XCTestCase {
         XCTAssertEqual(try XCTUnwrap(reopenedBoards.first { $0.id == "one" }).icon, "1.circle")
     }
 
+    func testPinboardIconCanBeChangedBackToColorDotAcrossRestart() async throws {
+        let directory = try makeTemporaryDirectory()
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let url = directory.appendingPathComponent("history.sqlite")
+
+        do {
+            let database = try HistoryDatabase(url: url)
+            let board = Pinboard(id: "favorites", name: "Favorites", color: "orange", icon: "star.fill")
+            try await database.saveBoard(board)
+            var colorDotBoard = board
+            colorDotBoard.icon = nil
+            try await database.saveBoard(colorDotBoard)
+        }
+
+        let reopened = try HistoryDatabase(url: url)
+        let reopenedBoards = try await reopened.boards()
+        let board = try XCTUnwrap(reopenedBoards.first)
+        XCTAssertEqual(board.name, "Favorites")
+        XCTAssertNil(board.icon)
+    }
+
     func testBatchAssignmentToInvalidBoardRollsBack() async throws {
         try await withTemporaryDatabase { database, _ in
             for id in ["first", "second"] {

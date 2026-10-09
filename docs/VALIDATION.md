@@ -38,3 +38,12 @@ The baseline results were recorded for Paster 1.2.1; the separate rebrand checks
 CI is configured to run tests and bundle validation on an Apple Silicon macOS runner. Its actual per-commit result is shown in the repository Actions tab; configuration alone is not proof of a passing run.
 
 The retained v1.3.0 candidate tag failed GitHub CI on an ambiguous Data initializer accepted by the newer local compiler. Version 1.3.1 uses an explicit byte-buffer initializer; no 1.3.0 binaries were published.
+
+## Verified 1.4.0 checks
+
+- 90 automated tests pass, including clearing a saved pinboard icon back to a color dot and preserving icons outside the built-in catalog.
+- The isolated, uniquely identified demo showed the categorized icon grid. Searching for travel returned Map, Airplane, and Car; Airplane remained selected after saving and reopening the editor. Switching back to Color Dot completed successfully; persistence is covered by the database regression test.
+- The release build and packaging parser checks pass. The versioned ZIP and read-only DMG pass signature, structure, and integrity verification.
+- The project Homebrew cask passes `brew style` and `brew audit`. Installation of the prior published version into a private test app directory succeeded with quarantine intact. The installed app was not launched and real clipboard history was not read.
+- The installation section was reviewed at desktop and 390 px widths; the mobile layout had no horizontal overflow. Installation choices and signing limitations remain visible.
+- These checks do not change the signing, CloudKit, platform-coverage, or real-world input limitations above.

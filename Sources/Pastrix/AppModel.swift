@@ -312,10 +312,15 @@ final class AppModel: ObservableObject {
             selectedBoardID = board.id; refresh()
         } catch { report(error) } }
     }
-    func updateBoard(_ board: Pinboard, name: String, color: String, icon: String) {
+    func updateBoard(_ board: Pinboard, name: String, color: String, icon: String?) {
         let name = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(60))
         guard !name.isEmpty else { return }
-        var updated = board; updated.name = name; updated.color = color; updated.icon = icon.isEmpty ? nil : icon
+        var updated = board; updated.name = name; updated.color = color; updated.icon = icon
+        Task { do { try await database.saveBoard(updated); refresh() } catch { report(error) } }
+    }
+    func updateBoardIcon(_ board: Pinboard, icon: String?) {
+        var updated = board
+        updated.icon = icon
         Task { do { try await database.saveBoard(updated); refresh() } catch { report(error) } }
     }
     func moveBoard(_ board: Pinboard, by delta: Int) {
@@ -449,10 +454,10 @@ final class AppModel: ObservableObject {
         } catch { report(error) } }
     }
     private func seedDemo() async throws {
-        let favorites = Pinboard(id: "favorites", name: "Favorites", color: "orange", position: 0)
+        let favorites = Pinboard(id: "favorites", name: "Favorites", color: "orange", position: 0, icon: "star.fill")
         try await database.saveBoard(favorites)
-        try await database.saveBoard(Pinboard(id: "work", name: "Work", color: "blue", position: 1))
-        try await database.saveBoard(Pinboard(id: "ideas", name: "Ideas", color: "purple", position: 2))
+        try await database.saveBoard(Pinboard(id: "work", name: "Work", color: "blue", position: 1, icon: "briefcase.fill"))
+        try await database.saveBoard(Pinboard(id: "ideas", name: "Ideas", color: "purple", position: 2, icon: "lightbulb.fill"))
         let entries: [(String, String, String)] = [
             ("Small details.\nA little less friction.\nA little more flow.\n\nMake room for your next great idea.", "Notes", "com.apple.Notes"),
             ("https://developer.apple.com/design/", "Safari", "com.apple.Safari"),

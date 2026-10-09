@@ -16,3 +16,5 @@ HANDOFF.md
 *.mobileprovision
 
 *.provisionprofile
+
+/distribution/homebrew-pastrix/

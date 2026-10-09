@@ -284,7 +284,7 @@ actor HistoryDatabase {
             ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 color = excluded.color,
-                icon = COALESCE(excluded.icon, boards.icon)
+                icon = excluded.icon
             """
         try withStatement(sql, operation: "saving pinboard") { statement in
             try bind(board.id, to: statement, at: 1)

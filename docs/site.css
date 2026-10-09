@@ -236,3 +236,20 @@ footer nav a:hover { color: var(--ink); }
   *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
   .js .reveal { opacity: 1; transform: none; }
 }
+
+/* Installation choices remain readable on narrow screens and with larger text. */
+.install-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; min-width: 0; }
+.install-option { padding: 28px; border: 1px solid var(--line); border-radius: 22px; background: rgba(255,255,255,.72); min-width: 0; }
+.install-option h3 { margin: 10px 0; font-size: 25px; }
+.install-option .button { margin-top: 18px; }
+.install-brew, .install-guide { grid-column: 1 / -1; }
+.command-row { display: flex; align-items: center; gap: 12px; margin: 22px 0 12px; padding: 16px; border-radius: 14px; background: #262044; color: #fff; }
+.command-row code { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: 14px; line-height: 1.65; user-select: all; }
+.copy-command { border: 1px solid #ada0d8; border-radius: 9px; padding: 10px 14px; min-height: 44px; background: #fff; color: #352267; font: inherit; cursor: pointer; }
+.copy-command:focus-visible { outline: 3px solid #beacff; outline-offset: 3px; }
+.install-guide { margin: 0; }
+@media (max-width: 760px) {
+  .install-options { grid-template-columns: minmax(0, 1fr); }
+  .install-option { padding: 22px; }
+  .command-row { align-items: flex-start; flex-direction: column; }
+}

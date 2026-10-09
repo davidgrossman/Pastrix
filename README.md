@@ -10,29 +10,32 @@ Pastrix is a native clipboard manager for macOS. It keeps recent clips in a visu
 [![Apple Silicon](https://img.shields.io/badge/Apple%20Silicon-arm64-7c5ce7)](https://github.com/davidgrossman/Pastrix/releases)
 [![MIT License](https://img.shields.io/badge/license-MIT-c75092)](LICENSE)
 
+## Install
+
+**[Download the DMG](https://github.com/davidgrossman/Pastrix/releases/download/v1.4.0/Pastrix-1.4.0-macOS-arm64.dmg)** · **[Installation guide & agent prompts](docs/INSTALL.md)** · **[Project site](https://davidgrossman.github.io/Pastrix/)**
+
+### Homebrew
+
+```sh
+brew install --cask davidgrossman/pastrix/pastrix
+```
+
+Uses [Pastrix’s own tap](https://github.com/davidgrossman/homebrew-pastrix); requires [Homebrew](https://brew.sh). To update, quit Pastrix, run `brew update`, then `brew upgrade --cask davidgrossman/pastrix/pastrix`.
+
+### Drag and drop
+
+Open the DMG, drag **Pastrix.app** onto **Applications**, eject, and open the app. A [ZIP](https://github.com/davidgrossman/Pastrix/releases/download/v1.4.0/Pastrix-1.4.0-macOS-arm64.zip) is also available. See the [guide](docs/INSTALL.md) for checksum commands, upgrades from Paster, uninstalling, source builds, and a copyable installation prompt for **Claude Code, Codex, or another agent**.
+
+> **Early public preview:** Pastrix 1.4.0 requires Apple Silicon and macOS 14+. It is ad-hoc signed and **not notarized**. If macOS blocks it, use **System Settings → Privacy & Security → Open Anyway** for this app. The public build is local-only. Accessibility is optional, needed only for direct paste and ordinary ⌘V during a queue.
+
 ![Pastrix’s visual clipboard shelf showing text, links, colors, and images](docs/assets/paster-shelf.jpg)
-
-> **Early public preview.** Pastrix 1.3.1 is built for Apple Silicon Macs running macOS 14 or later. The download is ad-hoc signed and is not notarized.
-
-## Download
-
-**[Download Pastrix 1.3.1 for Apple Silicon](https://github.com/davidgrossman/Pastrix/releases/download/v1.3.1/Pastrix-1.3.1-macOS-arm64.dmg)**
-
-You can also browse [all releases](https://github.com/davidgrossman/Pastrix/releases) or [visit the project site](https://davidgrossman.github.io/Pastrix/).
-
-Download [the DMG checksum](https://github.com/davidgrossman/Pastrix/releases/download/v1.3.1/Pastrix-1.3.1-macOS-arm64.dmg.sha256) beside the DMG, then run `shasum -a 256 -c Pastrix-1.3.1-macOS-arm64.dmg.sha256` in that folder to verify it.
-
-Open the DMG, drag **Pastrix.app** onto **Applications**, eject the disk image, then open the app. If macOS blocks it, use **System Settings → Privacy & Security → Open Anyway** for this app. Older macOS versions may also offer Control-click → Open.
-
-**Upgrading from Paster:** Quit Paster before opening Pastrix, and replace the old application rather than running both copies. Your history stays in its existing folder. If launch at login was enabled, switch it off and on in Pastrix so macOS registers the renamed app.
-
-Accessibility permission is optional. Pastrix asks for it only when you enable direct paste or use a clip queue with ordinary ⌘V. Copying, search, pinboards, and history work without that permission. Ad-hoc updates can require you to reauthorize Accessibility for the replacement app.
 
 ## What it does
 
 - Captures text, links, colors, images, PDFs, rich text, and Finder file references.
 - Finds clips by content, source app, or type.
-- Keeps important clips on colored pinboards. Drag a clip onto a board name, or Command-click / Shift-click to select a group and drag them together. Undo reverses the last board assignment.
+- Gives pinboards their own colored icons: pick a star for Favorites, a briefcase for Work, or a lightbulb for Ideas. Right-click a board → **Choose Icon**, or open **Edit Pinboard** for the searchable visual picker. Keep a simple color dot if you prefer. Existing choices are preserved.
+- Keeps important clips on pinboards. Drag a clip onto a board name, or Command-click / Shift-click to select a group and drag them together. Undo reverses the last board assignment.
 - Opens with ⌘⇧V and supports keyboard navigation and a five-item Quick Menu.
 - Collects a run of copies into a session queue and pastes them back in order.
 - Creates snippets, renames clips, shares through the macOS share sheet, and supports JSON backup and restore.
@@ -98,10 +101,11 @@ Pastrix is available under the [MIT License](LICENSE).
 | --- | --- |
 | `Sources/Pastrix` | Native UI, clipboard capture, SQLite storage, queue and sharing |
 | `Tests/PastrixTests` | Synthetic clipboard, persistence, migration, queue and release tests |
+| `Casks` | Versioned Homebrew cask, mirrored to the public tap |
 | `scripts` | Reproducible icon generation and portable release packaging |
 | `resources` | App metadata, Pastrix icon master, generated iconset, and `.icns` bundle icon |
 | `docs` | Architecture, privacy, release notes and the GitHub Pages showcase |
 
-Automated tests use synthetic clipboard and sync fixtures. The target remains macOS 14+ on Apple Silicon; no Intel download is supplied. Live two-Mac CloudKit sync, notarized installation, older systems, external-app paste, prolonged use and multiple displays require broader validation. See [release notes](docs/RELEASE-1.3.1.md), [architecture](docs/ARCHITECTURE.md), and [privacy details](docs/PRIVACY.md), and the [Claude Code review with fix dispositions](docs/REVIEW-1.3.0.md).
+Automated tests use synthetic clipboard and sync fixtures. The target remains macOS 14+ on Apple Silicon; no Intel download is supplied. Live two-Mac CloudKit sync, notarized installation, older systems, external-app paste, prolonged use and multiple displays require broader validation. See [release notes](docs/RELEASE-1.4.0.md), [architecture](docs/ARCHITECTURE.md), and [privacy details](docs/PRIVACY.md), and the [Claude Code review with fix dispositions](docs/REVIEW-1.3.0.md).
 
 Pastrix is an independent project inspired by visual clipboard workflows. It is not affiliated with Paste, Clipbara or Apple. No Paste or Clipbara source code or branding is included. OCR, AI and MCP are not implemented. iPhone and iPad companion apps are planned; no mobile app is included.

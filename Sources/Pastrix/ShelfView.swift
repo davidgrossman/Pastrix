@@ -33,6 +33,7 @@ struct ShelfView: View {
                 onNewBoard: { newBoardContext = NewBoardContext(assigning: []) },
                 onNewSnippet: { showingNewSnippet = true },
                 onEditBoard: { editingBoard = $0 },
+                onSetBoardIcon: { board, icon in model.updateBoardIcon(board, icon: icon) },
                 onDeleteBoard: { model.deleteBoard($0) }
             )
 
@@ -252,6 +253,7 @@ private struct ShelfHeader: View {
     let onNewBoard: () -> Void
     let onNewSnippet: () -> Void
     let onEditBoard: (Pinboard) -> Void
+    let onSetBoardIcon: (Pinboard, String?) -> Void
     let onDeleteBoard: (Pinboard) -> Void
     @State private var targetedBoardID: String?
     @State private var isClipboardDropTarget = false
@@ -300,6 +302,25 @@ private struct ShelfHeader: View {
                         .contextMenu {
                             Button("Edit Pinboard…", systemImage: "slider.horizontal.3") {
                                 onEditBoard(board)
+                            }
+                            Menu("Choose Icon", systemImage: "square.grid.3x3") {
+                                Button {
+                                    onSetBoardIcon(board, nil)
+                                } label: {
+                                    Label("Color Dot", systemImage: board.icon == nil ? "checkmark.circle.fill" : "circle.fill")
+                                }
+                                Divider()
+                                ForEach(PinboardIconCatalog.quickChoices) { option in
+                                    Button {
+                                        onSetBoardIcon(board, option.symbol)
+                                    } label: {
+                                        Label(option.name, systemImage: board.icon == option.symbol ? "checkmark" : option.symbol)
+                                    }
+                                }
+                                Divider()
+                                Button("More Icons…", systemImage: "ellipsis") {
+                                    onEditBoard(board)
+                                }
                             }
                             Divider()
                             Button("Move Left", systemImage: "arrow.left") {
@@ -395,7 +416,7 @@ private struct BoardTab: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 7) {
-                if let symbol {
+                if let symbol, NSImage(systemSymbolName: symbol, accessibilityDescription: nil) != nil {
                     Image(systemName: symbol)
                         .font(.system(size: 12, weight: .semibold))
                         .foregroundStyle(color)
@@ -946,59 +967,43 @@ private struct PinboardEditorSheet: View {
     }
 
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     let mode: Mode
-    let onSave: (String, String, String) -> Void
+    let onSave: (String, String, String?) -> Void
     @State private var name: String
     @State private var color: String
-    @State private var icon: String
+    @State private var icon: String?
+    @State private var iconQuery = ""
 
     private let colors = ["#5B8DEF", "#8B6CE1", "#DE5C8F", "#EB675E", "#E99A3E", "#55A76A", "#35A7A0"]
-    private let icons = ["pin.fill", "star.fill", "briefcase.fill", "lightbulb.fill", "heart.fill", "house.fill", "book.fill", "shippingbox.fill"]
+    private let iconColumns = Array(repeating: GridItem(.fixed(48), spacing: 8), count: 8)
 
-    init(mode: Mode, onSave: @escaping (String, String, String) -> Void) {
+    init(mode: Mode, onSave: @escaping (String, String, String?) -> Void) {
         self.mode = mode
         self.onSave = onSave
         switch mode {
         case .create:
             _name = State(initialValue: "")
             _color = State(initialValue: "#5B8DEF")
-            _icon = State(initialValue: "pin.fill")
+            _icon = State(initialValue: PinboardIconCatalog.defaultSymbol)
         case .edit(let board):
             _name = State(initialValue: board.name)
             _color = State(initialValue: board.color)
-            _icon = State(initialValue: board.icon ?? "pin.fill")
+            _icon = State(initialValue: board.icon)
         }
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 20) {
+        VStack(alignment: .leading, spacing: 18) {
             VStack(alignment: .leading, spacing: 5) {
                 Text(mode.title).font(.title2.weight(.semibold))
                 Text(mode.subtitle)
                     .foregroundStyle(.secondary)
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                Text("Icon").font(.subheadline.weight(.semibold))
-                HStack(spacing: 9) {
-                    ForEach(icons, id: \.self) { symbol in
-                        Button {
-                            icon = symbol
-                        } label: {
-                            Image(systemName: symbol)
-                                .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(icon == symbol ? Color.white : Color(pastrixHex: color))
-                                .frame(width: 30, height: 30)
-                                .background(icon == symbol ? Color(pastrixHex: color) : Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                        }
-                        .buttonStyle(.plain)
-                        .accessibilityAddTraits(icon == symbol ? .isSelected : [])
-                    }
-                }
-            }
-
             TextField("Pinboard name", text: $name)
                 .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Pinboard name")
 
             VStack(alignment: .leading, spacing: 10) {
                 Text("Color").font(.subheadline.weight(.semibold))
@@ -1018,13 +1023,82 @@ private struct PinboardEditorSheet: View {
                                 }
                         }
                         .buttonStyle(.plain)
-                        .accessibilityLabel(swatch)
+                        .accessibilityLabel("\(colorName(for: swatch)) pinboard color")
                         .accessibilityAddTraits(color == swatch ? .isSelected : [])
                     }
                 }
             }
 
-            Spacer()
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text("Icon").font(.subheadline.weight(.semibold))
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass")
+                            .foregroundStyle(.secondary)
+                        TextField("Search icons", text: $iconQuery)
+                            .textFieldStyle(.plain)
+                            .accessibilityLabel("Search pinboard icons")
+                    }
+                    .padding(.horizontal, 9)
+                    .frame(width: 210, height: 28)
+                    .background(.quaternary.opacity(0.65), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                }
+
+                Button {
+                    icon = nil
+                } label: {
+                    HStack(spacing: 9) {
+                        Circle()
+                            .fill(Color(pastrixHex: color).gradient)
+                            .frame(width: 16, height: 16)
+                        Text("Color Dot")
+                        Spacer()
+                        if icon == nil { Image(systemName: "checkmark") }
+                    }
+                    .padding(.horizontal, 10)
+                    .frame(height: 34)
+                    .background(icon == nil ? Color(pastrixHex: color).opacity(0.14) : Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    .overlay {
+                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                            .strokeBorder(icon == nil ? Color(pastrixHex: color).opacity(0.65) : .clear)
+                    }
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Color Dot icon")
+                .accessibilityAddTraits(icon == nil ? .isSelected : [])
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        ForEach(iconSections) { section in
+                            VStack(alignment: .leading, spacing: 7) {
+                                Text(section.category.rawValue)
+                                    .font(.caption.weight(.semibold))
+                                    .foregroundStyle(.secondary)
+                                LazyVGrid(columns: iconColumns, alignment: .leading, spacing: 8) {
+                                    ForEach(section.options) { option in
+                                        iconButton(option)
+                                    }
+                                }
+                            }
+                        }
+                        if iconSections.isEmpty {
+                            ContentUnavailableView(
+                                "No Icons Found",
+                                systemImage: "magnifyingglass",
+                                description: Text("Try a word such as work, travel, or favorite.")
+                            )
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 28)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                .scrollIndicators(.visible)
+                .frame(height: 252)
+                .accessibilityLabel("Pinboard icon choices")
+            }
+
             HStack {
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }
@@ -1038,7 +1112,52 @@ private struct PinboardEditorSheet: View {
             }
         }
         .padding(24)
-        .frame(width: 430, height: 340)
+        .frame(width: 520, height: 610)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: icon)
+    }
+
+    private var iconSections: [PinboardIconSection] {
+        PinboardIconCatalog.sections(matching: iconQuery, currentSymbol: icon)
+    }
+
+    private func iconButton(_ option: PinboardIconOption) -> some View {
+        let isSelected = icon == option.symbol
+        return Button {
+            icon = option.symbol
+        } label: {
+            Group {
+                if NSImage(systemSymbolName: option.symbol, accessibilityDescription: nil) != nil {
+                    Image(systemName: option.symbol)
+                } else {
+                    Image(systemName: PinboardIconCatalog.defaultSymbol)
+                }
+            }
+            .font(.system(size: 16, weight: .semibold))
+            .foregroundStyle(isSelected ? Color.white : Color(pastrixHex: color))
+            .frame(width: 46, height: 38)
+            .background(isSelected ? Color(pastrixHex: color) : Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
+            .overlay {
+                RoundedRectangle(cornerRadius: 9, style: .continuous)
+                    .strokeBorder(isSelected ? Color(pastrixHex: color) : Color.primary.opacity(0.06))
+            }
+        }
+        .buttonStyle(.plain)
+        .help(option.name)
+        .accessibilityLabel("\(option.name) icon")
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func colorName(for swatch: String) -> String {
+        switch swatch {
+        case "#5B8DEF": "Blue"
+        case "#8B6CE1": "Purple"
+        case "#DE5C8F": "Pink"
+        case "#EB675E": "Red"
+        case "#E99A3E": "Orange"
+        case "#55A76A": "Green"
+        case "#35A7A0": "Teal"
+        default: "Custom"
+        }
     }
 }
 

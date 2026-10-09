@@ -17,7 +17,7 @@
   <link rel="icon" href="assets/pastrix-icon.png" type="image/png">
   <link rel="stylesheet" href="site.css">
   <script src="site.js" defer></script>
-<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Pastrix", "applicationCategory": "UtilitiesApplication", "operatingSystem": "macOS 14 or later; Apple Silicon", "softwareVersion": "1.3.1", "url": "https://davidgrossman.github.io/Pastrix/", "downloadUrl": "https://github.com/davidgrossman/Pastrix/releases/download/v1.3.1/Pastrix-1.3.1-macOS-arm64.dmg", "license": "https://github.com/davidgrossman/Pastrix/blob/main/LICENSE", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}</script>
+<script type="application/ld+json">{"@context": "https://schema.org", "@type": "SoftwareApplication", "name": "Pastrix", "applicationCategory": "UtilitiesApplication", "operatingSystem": "macOS 14 or later; Apple Silicon", "softwareVersion": "1.4.0", "url": "https://davidgrossman.github.io/Pastrix/", "downloadUrl": "https://github.com/davidgrossman/Pastrix/releases/download/v1.4.0/Pastrix-1.4.0-macOS-arm64.dmg", "license": "https://github.com/davidgrossman/Pastrix/blob/main/LICENSE", "offers": {"@type": "Offer", "price": "0", "priceCurrency": "USD"}}</script>
 </head>
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
@@ -37,7 +37,7 @@
       <a href="#privacy">Privacy</a>
       <a href="#install">Install</a>
       <a href="https://github.com/davidgrossman/Pastrix">GitHub</a>
-      <a class="nav-download" href="https://github.com/davidgrossman/Pastrix/releases/download/v1.3.1/Pastrix-1.3.1-macOS-arm64.dmg">Download</a>
+      <a class="nav-download" href="https://github.com/davidgrossman/Pastrix/releases/download/v1.4.0/Pastrix-1.4.0-macOS-arm64.dmg">Download</a>
     </nav>
   </header>
 
@@ -48,11 +48,11 @@
         <h1>A little more flow.<br><em>A lot less copying.</em></h1>
         <p class="hero-lede">Pastrix keeps what you copy close at hand. Find it, organize it, or line it up to paste—with history stored locally by default.</p>
         <div class="hero-actions">
-          <a class="button button-primary" href="https://github.com/davidgrossman/Pastrix/releases/download/v1.3.1/Pastrix-1.3.1-macOS-arm64.dmg">
+          <a class="button button-primary" href="https://github.com/davidgrossman/Pastrix/releases/download/v1.4.0/Pastrix-1.4.0-macOS-arm64.dmg">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 5-5m-5 5-5-5M5 20h14"/></svg>
-            Download 1.3.1
+            Download 1.4.0
           </a>
-          <a class="button button-secondary" href="https://github.com/davidgrossman/Pastrix">View on GitHub</a>
+          <a class="button button-secondary" href="#install">Install with Homebrew</a>
         </div>
         <p class="hero-note">Early public preview · Apple Silicon · macOS 14+</p>
       </div>
@@ -101,7 +101,7 @@
             <svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="5.5"/><path d="m15 15 5 5"/></svg>
           </div>
           <h3>Find the right clip</h3>
-          <p>Search content, source app, or type. Select a group and drag it onto a colored pinboard. Undo brings it back.</p>
+          <p>Search content, source app, or type. Give each pinboard a colored icon, then drag clips onto it. Select a group to organize several at once. Undo brings them back.</p>
           <div class="search-demo" aria-hidden="true"><span>⌕</span><span class="search-text">Search clipboard</span><kbd>⌘F</kbd></div>
         </article>
 
@@ -166,22 +166,30 @@
     <section id="install" class="section install">
       <div class="section-heading reveal">
         <p class="eyebrow"><span></span> Get started</p>
-        <h2>From download to first paste.</h2>
+        <h2>Your Mac.<br>Your way to install.</h2>
       </div>
-      <ol class="install-steps">
-        <li class="reveal">
-          <span>1</span>
-          <div><h3>Download and move</h3><p>Open the DMG and drag <strong>Pastrix.app</strong> to your Applications folder.</p></div>
-        </li>
-        <li class="reveal">
-          <span>2</span>
-          <div><h3>Open the preview</h3><p>Open Pastrix. If macOS blocks it, use <strong>System Settings → Privacy &amp; Security → Open Anyway</strong> for this app.</p></div>
-        </li>
-        <li class="reveal">
-          <span>3</span>
-          <div><h3>Choose direct paste</h3><p>Grant Accessibility only if you want direct paste or ordinary ⌘V during a queue. Other features do not need it.</p></div>
-        </li>
-      </ol>
+      <div class="install-options">
+        <article class="install-option install-brew reveal">
+          <p class="eyebrow">One command</p>
+          <h3>Install with Homebrew</h3>
+          <p>Easy installation and updates through Pastrix’s own tap.</p>
+          <div class="command-row"><code id="brew-command">brew install --cask davidgrossman/pastrix/pastrix</code><button class="copy-command" type="button" aria-describedby="copy-status">Copy</button></div>
+          <p id="copy-status" class="fine-print" role="status" aria-live="polite">Requires <a href="https://brew.sh">Homebrew</a>. Installs the app without opening it.</p>
+        </article>
+        <article class="install-option reveal">
+          <p class="eyebrow">Drag and drop</p>
+          <h3>Download the DMG</h3>
+          <p>Open the disk image, drag Pastrix to Applications, then eject and open the app.</p>
+          <a class="button button-secondary" href="https://github.com/davidgrossman/Pastrix/releases/download/v1.4.0/Pastrix-1.4.0-macOS-arm64.dmg">Download 1.4.0</a>
+        </article>
+        <article class="install-option reveal">
+          <p class="eyebrow">Your agent can help</p>
+          <h3>Ask Claude Code or Codex</h3>
+          <p>Copy a ready-to-use prompt with installation checks and clear permission boundaries.</p>
+          <a class="button button-secondary" href="https://github.com/davidgrossman/Pastrix/blob/main/docs/INSTALL.md#ask-claude-code-codex-or-another-agent">Get the install prompt</a>
+        </article>
+        <p class="install-guide"><a href="https://github.com/davidgrossman/Pastrix/blob/main/docs/INSTALL.md">Full guide: updates, existing installations, checksums, ZIP, and source builds →</a></p>
+      </div>
       <aside class="preview-note reveal">
         <span aria-hidden="true">!</span>
         <p><strong>Early public preview</strong><br>This Apple Silicon build requires macOS 14 or later. It is ad-hoc signed and has not been notarized.</p>
@@ -207,7 +215,7 @@
       <h2 class="reveal">Make room for<br>the thought you’re on.</h2>
       <p class="reveal">Download the early preview, or help make Pastrix better on GitHub.</p>
       <div class="hero-actions centered-actions reveal">
-        <a class="button button-primary" href="https://github.com/davidgrossman/Pastrix/releases/download/v1.3.1/Pastrix-1.3.1-macOS-arm64.dmg">Download Pastrix 1.3.1</a>
+        <a class="button button-primary" href="https://github.com/davidgrossman/Pastrix/releases/download/v1.4.0/Pastrix-1.4.0-macOS-arm64.dmg">Download Pastrix 1.4.0</a>
         <a class="button button-secondary" href="https://github.com/davidgrossman/Pastrix/blob/main/CONTRIBUTING.md">Contribute</a>
       </div>
     </section>

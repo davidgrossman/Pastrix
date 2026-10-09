@@ -42,3 +42,22 @@ if (reducedMotion || !('IntersectionObserver' in window)) {
 
   reveals.forEach((element) => observer.observe(element));
 }
+
+const copyCommand = document.querySelector('.copy-command');
+if (copyCommand) {
+  copyCommand.addEventListener('click', async () => {
+    const command = document.querySelector('#brew-command');
+    const status = document.querySelector('#copy-status');
+    try {
+      await navigator.clipboard.writeText(command.textContent);
+      status.textContent = 'Copied. Paste the command into Terminal when you are ready.';
+    } catch {
+      const range = document.createRange();
+      range.selectNodeContents(command);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+      status.textContent = 'Select and copy the highlighted command, then paste it into Terminal.';
+    }
+  });
+}
