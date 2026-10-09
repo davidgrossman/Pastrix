@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 struct ClipBoardPlacement: Equatable, Sendable {
@@ -59,5 +60,23 @@ enum ClipSelectionRules {
     ) -> [String] {
         guard selectedIDs.contains(targetID) else { return [targetID] }
         return orderedIDs.filter(selectedIDs.contains)
+    }
+}
+
+// A reference value avoids publishing a view update in the middle of mouse-down.
+@MainActor
+final class ClipMouseModifiers {
+    var captured: NSEvent.ModifierFlags?
+    private(set) var lastRecorded: NSEvent.ModifierFlags = []
+
+    func record(_ flags: NSEvent.ModifierFlags) {
+        captured = flags
+        lastRecorded = flags
+    }
+
+    func consume(currentEvent: NSEvent?) -> NSEvent.ModifierFlags {
+        defer { captured = nil }
+        if currentEvent?.type == .keyDown { return currentEvent?.modifierFlags ?? [] }
+        return captured ?? currentEvent?.modifierFlags ?? []
     }
 }

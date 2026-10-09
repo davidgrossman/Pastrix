@@ -8,6 +8,11 @@ private enum PastrixDragType {
     static let boardID = UTType(exportedAs: LegacyCompatibility.boardDragTypeIdentifier, conformingTo: .data)
 }
 
+private struct ClipInsertionTarget: Equatable {
+    let id: String
+    let after: Bool
+}
+
 private struct NewBoardContext: Identifiable {
     let id = UUID()
     var assigning: [String]
@@ -17,12 +22,15 @@ struct ShelfView: View {
     @ObservedObject var model: AppModel
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+    @Environment(\.colorSchemeContrast) private var contrast
     @FocusState private var searchFocused: Bool
     @State private var newBoardContext: NewBoardContext?
     @State private var editingBoard: Pinboard?
     @State private var showingNewSnippet = false
     @State private var editingClip: Clip?
     @State private var previewClip: Clip?
+    @State private var insertionTarget: ClipInsertionTarget?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -59,22 +67,14 @@ struct ShelfView: View {
             Divider().opacity(0.45)
             ShelfFooter(model: model)
         }
-        .background(.ultraThinMaterial)
         .background {
-            LinearGradient(
-                colors: [
-                    Color(nsColor: .windowBackgroundColor).opacity(0.7),
-                    Color.accentColor.opacity(0.035),
-                    Color(nsColor: .windowBackgroundColor).opacity(0.5)
-                ],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
+            if reduceTransparency || contrast == .increased { Color(nsColor: .windowBackgroundColor) }
+            else { Rectangle().fill(.regularMaterial) }
         }
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
         .overlay {
             RoundedRectangle(cornerRadius: 26, style: .continuous)
-                .strokeBorder(.white.opacity(0.5), lineWidth: 0.75)
+                .strokeBorder(Color.primary.opacity(contrast == .increased ? 0.5 : 0.12), lineWidth: 1)
         }
         .shadow(color: .black.opacity(0.18), radius: 28, y: 12)
         .padding(14)
@@ -105,9 +105,6 @@ struct ShelfView: View {
         }
         .sheet(item: $previewClip) { clip in
             ClipDetailSheet(clip: clip, model: model)
-        }
-        .sheet(isPresented: $model.showingSettings) {
-            PastrixSettingsView(model: model)
         }
         .onReceive(NotificationCenter.default.publisher(for: .init("PastrixFocusSearch"))) { _ in
             searchFocused = true
@@ -147,8 +144,8 @@ struct ShelfView: View {
             }
             .scrollIndicators(.hidden)
             .scrollTargetBehavior(.viewAligned)
-            .onChange(of: model.selectedIDs) { oldSelection, newSelection in
-                scrollToSelection(from: oldSelection, to: newSelection, using: proxy)
+            .onChange(of: model.navigationTargetID) { _, targetID in
+                scrollToKeyboardSelection(targetID, using: proxy)
             }
         }
     }
@@ -168,21 +165,14 @@ struct ShelfView: View {
                 .padding(20)
             }
             .scrollIndicators(.hidden)
-            .onChange(of: model.selectedIDs) { oldSelection, newSelection in
-                scrollToSelection(from: oldSelection, to: newSelection, using: proxy)
+            .onChange(of: model.navigationTargetID) { _, targetID in
+                scrollToKeyboardSelection(targetID, using: proxy)
             }
         }
     }
 
-    private func scrollToSelection(
-        from oldSelection: Set<String>,
-        to newSelection: Set<String>,
-        using proxy: ScrollViewProxy
-    ) {
-        guard !newSelection.isEmpty else { return }
-        let newlySelected = newSelection.subtracting(oldSelection)
-        let targetID = model.clips.first(where: { newlySelected.contains($0.id) })?.id
-            ?? model.clips.first(where: { newSelection.contains($0.id) })?.id
+    // Pointer selection must not move the card underneath the next click or drag.
+    private func scrollToKeyboardSelection(_ targetID: String?, using proxy: ScrollViewProxy) {
         guard let targetID else { return }
         if reduceMotion {
             proxy.scrollTo(targetID, anchor: .center)
@@ -198,16 +188,12 @@ struct ShelfView: View {
             isSelected: model.selectedIDs.contains(clip.id),
             draggedIDs: actionIDs(for: clip),
             compact: compact,
-            canReorder: model.selectedBoardID != nil,
+            insertionTarget: $insertionTarget,
+            canReorder: model.canReorderClips,
             boards: model.boards,
-            onSelect: {
+            onSelect: { modifiers in
                 searchFocused = false
-                let modifiers = NSEvent.modifierFlags
-                model.select(
-                    clip,
-                    extending: modifiers.contains(.command),
-                    range: modifiers.contains(.shift)
-                )
+                model.selectFromShelf(clip, modifiers: modifiers)
             },
             onDrag: {
                 searchFocused = false
@@ -216,6 +202,10 @@ struct ShelfView: View {
             onCopy: { act(on: clip) { model.copySelected() } },
             onCopyPlain: { act(on: clip) { model.copySelected(plain: true) } },
             onPaste: { act(on: clip) { model.pasteSelected() } },
+            onDoubleClickPaste: { modifiers in
+                guard !model.selectingMultiple, modifiers.intersection([.command, .shift]).isEmpty else { return }
+                act(on: clip) { model.pasteSelected() }
+            },
             onPastePlain: { act(on: clip) { model.pasteSelected(plain: true) } },
             onRename: { model.renamingClip = clip },
             onShare: { act(on: clip) { model.shareSelected() } },
@@ -226,7 +216,7 @@ struct ShelfView: View {
             onAssign: { boardID in model.assign(ids: actionIDs(for: clip), to: boardID) },
             onNewBoard: { newBoardContext = NewBoardContext(assigning: actionIDs(for: clip)) },
             onMove: { model.moveClip(clip, by: $0) },
-            onReorder: { ids in model.reorderClips(draggedIDs: ids, to: clip.id) }
+            onReorder: { ids, after in model.reorderClips(draggedIDs: ids, to: clip.id, after: after) }
         )
     }
 
@@ -381,9 +371,17 @@ private struct ShelfHeader: View {
             .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             .overlay {
                 RoundedRectangle(cornerRadius: 11, style: .continuous)
-                    .strokeBorder(searchFocused.wrappedValue ? Color.accentColor.opacity(0.8) : .white.opacity(0.35))
+                    .strokeBorder(searchFocused.wrappedValue ? Color.accentColor : Color.primary.opacity(0.2))
             }
 
+            Menu {
+                Picker("Clip order", selection: Binding(get: { model.sortOrder }, set: { model.sortOrder = $0 })) {
+                    ForEach(ClipSortOrder.allCases, id: \.self) { Text($0.title).tag($0) }
+                }
+            } label: {
+                Label(model.sortOrder.title, systemImage: model.sortOrder == .manual ? "hand.draw" : "clock")
+            }
+            .help("Manual order keeps new clips at the end. Clear filters to rearrange clips.")
             KindFilterMenu(selection: $model.kindFilter)
 
             Button {
@@ -496,22 +494,64 @@ private struct KindFilterMenu: View {
     }
 }
 
+// Read modifiers from mouse-down, not the global key state when SwiftUI eventually
+// delivers the Button action. This local monitor observes only clicks in this card;
+// returning the event unchanged preserves native drag and context-menu handling.
+private struct ClipMouseCapture: NSViewRepresentable {
+    let modifiers: ClipMouseModifiers
+    func makeNSView(context: Context) -> CaptureView { CaptureView(modifiers: modifiers) }
+    func updateNSView(_ view: CaptureView, context: Context) {}
+    static func dismantleNSView(_ view: CaptureView, coordinator: ()) { view.stopMonitoring() }
+
+    final class CaptureView: NSView {
+        let modifiers: ClipMouseModifiers
+        private var monitor: Any?
+        init(modifiers: ClipMouseModifiers) {
+            self.modifiers = modifiers
+            super.init(frame: .zero)
+        }
+        required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+        override func hitTest(_ point: NSPoint) -> NSView? { nil }
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stopMonitoring()
+            guard window != nil else { return }
+            monitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { [weak self] event in
+                MainActor.assumeIsolated {
+                    if let self, event.window === self.window,
+                       self.bounds.contains(self.convert(event.locationInWindow, from: nil)) {
+                        self.modifiers.record(event.modifierFlags)
+                    }
+                }
+                return event
+            }
+        }
+        func stopMonitoring() {
+            if let monitor { NSEvent.removeMonitor(monitor); self.monitor = nil }
+        }
+    }
+}
+
 private struct ClipCard: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isHovered = false
-    @State private var isDropTarget = false
+    @State private var clickModifiers = ClipMouseModifiers()
+    @FocusState private var keyboardFocused: Bool
+    @Environment(\.colorSchemeContrast) private var contrast
     let clip: Clip
     let board: Pinboard?
     let isSelected: Bool
     let draggedIDs: [String]
     let compact: Bool
+    @Binding var insertionTarget: ClipInsertionTarget?
     let canReorder: Bool
     let boards: [Pinboard]
-    let onSelect: () -> Void
+    let onSelect: (NSEvent.ModifierFlags) -> Void
     let onDrag: () -> [String]
     let onCopy: () -> Void
     let onCopyPlain: () -> Void
     let onPaste: () -> Void
+    let onDoubleClickPaste: (NSEvent.ModifierFlags) -> Void
     let onPastePlain: () -> Void
     let onRename: () -> Void
     let onShare: () -> Void
@@ -522,12 +562,21 @@ private struct ClipCard: View {
     let onAssign: (String?) -> Void
     let onNewBoard: () -> Void
     let onMove: (Int) -> Void
-    let onReorder: ([String]) -> Void
+    let onReorder: ([String], Bool) -> Void
 
     private var accent: Color { clip.accentColor }
+    private var insertionAfter: Bool? { insertionTarget?.id == clip.id ? insertionTarget?.after : nil }
+    private var insertionBinding: Binding<Bool?> {
+        Binding(get: { insertionAfter }, set: { after in
+            if let after { insertionTarget = ClipInsertionTarget(id: clip.id, after: after) }
+            else if insertionTarget?.id == clip.id { insertionTarget = nil }
+        })
+    }
 
     var body: some View {
-        Button(action: onSelect) {
+        Button {
+            onSelect(clickModifiers.consume(currentEvent: NSApp.currentEvent))
+        } label: {
             VStack(spacing: 0) {
                 cardHeader
                 cardContent
@@ -551,8 +600,8 @@ private struct ClipCard: View {
             .overlay {
                 RoundedRectangle(cornerRadius: 17, style: .continuous)
                     .strokeBorder(
-                        isDropTarget ? accent : (isSelected ? Color.accentColor : .black.opacity(isHovered ? 0.15 : 0.08)),
-                        lineWidth: isDropTarget || isSelected ? 2.25 : 0.75
+                        (isSelected || keyboardFocused) ? Color.accentColor : Color.primary.opacity(contrast == .increased ? 0.55 : (isHovered ? 0.25 : 0.12)),
+                        lineWidth: isSelected || keyboardFocused ? 2.25 : (contrast == .increased ? 1.5 : 0.75)
                     )
             }
             .shadow(color: .black.opacity(isSelected ? 0.17 : (isHovered ? 0.11 : 0.07)), radius: isSelected ? 9 : 6, y: 3)
@@ -561,23 +610,37 @@ private struct ClipCard: View {
             .animation(reduceMotion ? nil : .easeOut(duration: 0.14), value: isHovered)
         }
         .buttonStyle(.plain)
-        .simultaneousGesture(TapGesture(count: 2).onEnded { onPaste() })
-        .onHover { isHovered = $0 }
+        .background(ClipMouseCapture(modifiers: clickModifiers))
+        .focused($keyboardFocused)
+        .simultaneousGesture(TapGesture(count: 2).onEnded { onDoubleClickPaste(clickModifiers.lastRecorded) })
+        .onHover { hovered in
+            isHovered = hovered
+            if !hovered && insertionTarget?.id == clip.id { insertionTarget = nil }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .init("PastrixClipDropCompleted"))) { _ in insertionTarget = nil }
         .onDrag {
-            clip.dragItemProvider(ids: onDrag())
+            clickModifiers.captured = nil
+            insertionTarget = nil
+            return clip.dragItemProvider(ids: onDrag())
         } preview: {
             ClipDragPreview(count: draggedIDs.count)
         }
-        .onDrop(of: [PastrixDragType.clipIDs.identifier], isTargeted: $isDropTarget) { providers in
-            loadClipIDs(from: providers) { ids in
-                guard canReorder, !ids.contains(clip.id) else { return }
-                onReorder(ids)
+        .overlay(alignment: insertionAfter == true ? .trailing : .leading) {
+            if insertionAfter != nil && canReorder {
+                Capsule().fill(Color.accentColor).frame(width: 3).padding(.vertical, 4)
+                    .offset(x: insertionAfter == true ? 7 : -7)
+                    .accessibilityHidden(true)
             }
         }
+        .onDrop(of: [PastrixDragType.clipIDs.identifier], delegate: ClipInsertionDrop(
+            enabled: canReorder, targetID: clip.id, insertionAfter: insertionBinding, onReorder: onReorder
+        ))
         .contextMenu { contextMenu }
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(clip.kind.displayName), \(clip.displayTitle), from \(clip.sourceApp)")
-        .accessibilityHint("Press to select. Double-click to paste.")
+        .accessibilityHint(canReorder ? "Press to select. Use Move Earlier or Move Later in the context menu to reorder." : "Press to select. Double-click to paste.")
+        .accessibilityAction(named: "Move Earlier") { if canReorder { onMove(-1) } }
+        .accessibilityAction(named: "Move Later") { if canReorder { onMove(1) } }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 
@@ -586,7 +649,8 @@ private struct ClipCard: View {
             Image(systemName: clip.kind.symbolName)
                 .font(.system(size: 12, weight: .bold))
                 .frame(width: 24, height: 24)
-                .background(.white.opacity(0.22), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
+                .foregroundStyle(accent)
+                .background(accent.opacity(0.12), in: RoundedRectangle(cornerRadius: 7, style: .continuous))
 
             Text(clip.sourceApp.isEmpty ? clip.kind.displayName : clip.sourceApp)
                 .font(.system(size: 12, weight: .bold))
@@ -596,10 +660,10 @@ private struct ClipCard: View {
 
             SourceAppIcon(bundleID: clip.sourceBundleID, fallback: clip.kind.symbolName)
         }
-        .foregroundStyle(.white)
+        .foregroundStyle(.primary)
         .padding(.horizontal, 12)
         .frame(height: 44)
-        .background(accent.gradient)
+        .background(accent.opacity(0.12))
     }
 
     @ViewBuilder
@@ -652,7 +716,7 @@ private struct ClipCard: View {
                 .monospacedDigit()
         }
         .font(.system(size: 10.5, weight: .medium))
-        .foregroundStyle(.tertiary)
+        .foregroundStyle(.secondary)
         .padding(.horizontal, 12)
         .frame(height: 38)
         .background(Color(nsColor: .controlBackgroundColor))
@@ -699,6 +763,30 @@ private struct ClipCard: View {
             .disabled(!canReorder)
         Divider()
         Button("Delete", systemImage: "trash", role: .destructive, action: onDelete)
+    }
+}
+
+private struct ClipInsertionDrop: DropDelegate {
+    let enabled: Bool
+    let targetID: String
+    @Binding var insertionAfter: Bool?
+    let onReorder: ([String], Bool) -> Void
+    func validateDrop(info: DropInfo) -> Bool { enabled && info.hasItemsConforming(to: [PastrixDragType.clipIDs.identifier]) }
+    func dropEntered(info: DropInfo) { if enabled { insertionAfter = info.location.x > 115 } }
+    func dropUpdated(info: DropInfo) -> DropProposal? {
+        guard enabled else { return DropProposal(operation: .forbidden) }
+        insertionAfter = info.location.x > 115
+        return DropProposal(operation: .move)
+    }
+    func dropExited(info: DropInfo) { insertionAfter = nil }
+    func performDrop(info: DropInfo) -> Bool {
+        let after = insertionAfter ?? (info.location.x > 115)
+        insertionAfter = nil
+        guard enabled else { return false }
+        return loadClipIDs(from: info.itemProviders(for: [PastrixDragType.clipIDs.identifier])) { ids in
+            guard !ids.contains(targetID) else { return }
+            onReorder(ids, after)
+        }
     }
 }
 
@@ -901,8 +989,35 @@ private struct ShelfFooter: View {
 
             Spacer()
 
+            if model.selectedIDs.count > 1 {
+                Menu("\(model.selectedIDs.count) selected") {
+                    Button("Copy Selected") { model.copySelected() }
+                    Button("Copy Selected as Text") { model.copySelected(plain: true) }
+                        .disabled(model.selectedClips.allSatisfy { $0.text.isEmpty })
+                    Menu("Move to Pinboard") {
+                        ForEach(model.boards) { board in
+                            Button(board.name) { model.assign(ids: model.selectedClips.map(\.id), to: board.id) }
+                        }
+                    }
+                    Button("Add to Paste Queue") { model.enqueueSelected() }
+                }
+                .help("Copy or organize the group in shelf order. You can also drag it onto a pinboard.")
+            }
+
             HStack(spacing: 14) {
-                KeyboardHint(keys: ["←", "→"], label: "Select")
+                if model.canReorderClips {
+                    Text("Drag to arrange · ⌥⌘← / →")
+                        .foregroundStyle(.secondary)
+                } else {
+                    Button(model.sortOrder == .manual ? "Clear filters to arrange" : "Arrange clips") {
+                        model.beginArrangingClips()
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Show all clips in this pinboard or history in Manual Order, ready for drag rearrangement.")
+                }
+                Toggle("Select Multiple", isOn: $model.selectingMultiple)
+                    .toggleStyle(.button)
+                    .help("Click clips to add or remove them from the group. Command-click and Shift-click also work; Control-click opens the context menu.")
                 KeyboardHint(keys: ["↩"], label: "Paste")
                 KeyboardHint(keys: ["⌘", "C"], label: "Copy")
                 KeyboardHint(keys: ["esc"], label: "Close")
@@ -1368,139 +1483,6 @@ private struct ClipDetailSheet: View {
     }
 }
 
-private struct PastrixSettingsView: View {
-    @ObservedObject var model: AppModel
-
-    var body: some View {
-        VStack(spacing: 0) {
-            HStack {
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("Pastrix Settings").font(.title2.weight(.semibold))
-                    Text("Your clipboard, organized your way.")
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Button("Done") {
-                    model.saveSettings()
-                    model.showingSettings = false
-                }
-                .keyboardShortcut(.defaultAction)
-            }
-            .padding(24)
-
-            Divider()
-
-            ScrollView {
-                VStack(spacing: 20) {
-                    SettingsSection(title: "History", symbol: "clock.arrow.circlepath") {
-                        Stepper(value: $model.settings.maxItems, in: 100...50_000, step: 100) {
-                            LabeledContent("Maximum unpinned clips") {
-                                Text(model.settings.maxItems.formatted())
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Stepper(value: $model.settings.retentionDays, in: 0...365) {
-                            LabeledContent("Keep history") {
-                                Text(retentionDescription)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                        Toggle("Play a sound when copying a saved clip", isOn: $model.settings.soundEnabled)
-                        Toggle("Paste immediately after choosing a clip", isOn: $model.settings.pasteAfterSelection)
-                    }
-
-                    SettingsSection(title: "Mac", symbol: "macwindow") {
-                        Toggle("Open Pastrix at login", isOn: $model.settings.launchAtLogin)
-
-                        VStack(alignment: .leading, spacing: 7) {
-                            HStack {
-                                Text("Direct paste access")
-                                Spacer()
-                                Label(
-                                    model.accessibilityGranted ? "Allowed" : "Not allowed",
-                                    systemImage: model.accessibilityGranted ? "checkmark.circle.fill" : "exclamationmark.circle"
-                                )
-                                .foregroundStyle(model.accessibilityGranted ? .green : .secondary)
-                            }
-                            Text("Accessibility permission lets Pastrix paste into the app you were using. Copying works without it.")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            if !model.accessibilityGranted {
-                                Button("Open Accessibility Settings") {
-                                    model.requestAccessibility()
-                                }
-                            }
-                        }
-                    }
-
-                    SettingsSection(title: "Ignored Apps", symbol: "app.badge") {
-                        Text("Enter one bundle identifier per line. Pastrix will not save clips copied from these apps.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        TextEditor(text: $model.settings.ignoredBundleIDs)
-                            .font(.system(.body, design: .monospaced))
-                            .scrollContentBackground(.hidden)
-                            .padding(8)
-                            .frame(height: 92)
-                            .background(.quaternary.opacity(0.5), in: RoundedRectangle(cornerRadius: 9, style: .continuous))
-                            .accessibilityLabel("Ignored application bundle identifiers")
-                    }
-
-                    PinboardSyncSettings(sync: model.pinboardSync)
-
-                    SettingsSection(title: "Data", symbol: "externaldrive") {
-                        Text("History and settings are stored locally. Only explicitly selected pinboards can sync in an iCloud-enabled build.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        HStack {
-                            Button("Open Data Folder") { model.openDataFolder() }
-                            Button("Export…") { model.exportHistory() }
-                            Button("Import…") { model.importHistory() }
-                            Spacer()
-                            Button("Clear Unpinned History…", role: .destructive) { model.clearHistory() }
-                        }
-                    }
-                }
-                .padding(24)
-            }
-        }
-        .frame(width: 600, height: 660)
-        .onDisappear { model.saveSettings() }
-    }
-
-    private var retentionDescription: String {
-        let days = model.settings.retentionDays
-        if days == 0 { return "Forever" }
-        return "\(days) \(days == 1 ? "day" : "days")"
-    }
-}
-
-private struct SettingsSection<Content: View>: View {
-    let title: String
-    let symbol: String
-    let content: Content
-
-    init(title: String, symbol: String, @ViewBuilder content: () -> Content) {
-        self.title = title
-        self.symbol = symbol
-        self.content = content()
-    }
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 13) {
-            Label(title, systemImage: symbol)
-                .font(.headline)
-            VStack(alignment: .leading, spacing: 12) {
-                content
-            }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 13, style: .continuous))
-        }
-    }
-}
-
 private enum AppIconProvider {
     @MainActor private static let cache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
@@ -1670,6 +1652,7 @@ private func loadClipIDs(from providers: [NSItemProvider], action: @escaping @Ma
         $0.hasItemConformingToTypeIdentifier(PastrixDragType.clipIDs.identifier)
     }) else { return false }
 
+    NotificationCenter.default.post(name: .init("PastrixClipDropCompleted"), object: nil)
     provider.loadDataRepresentation(forTypeIdentifier: PastrixDragType.clipIDs.identifier) { data, _ in
         guard let data, let ids = try? JSONDecoder().decode([String].self, from: data), !ids.isEmpty else { return }
         Task { @MainActor in action(ids) }

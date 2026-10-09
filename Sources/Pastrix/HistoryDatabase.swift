@@ -54,7 +54,7 @@ private final class SQLiteConnection: @unchecked Sendable {
 
 /// Serializes all access to Pastrix's on-disk history.
 actor HistoryDatabase {
-    private static let schemaVersion: Int32 = 2
+    private static let schemaVersion: Int32 = 3
     private static let maxUnpinnedPayloadBytes = 512 * 1024 * 1024
     private static let maximumSyncedBoardClips = 2_000
     private static let maximumSyncedBoardPayloadBytes: Int64 = 32 * 1_024 * 1_024
@@ -154,15 +154,21 @@ actor HistoryDatabase {
             try bind(payload, to: statement, at: 14)
             try expectDone(statement, operation: "upserting clip")
         }
+        try withStatement("INSERT OR IGNORE INTO history_order SELECT id, (SELECT COALESCE(MAX(position), -1) + 1 FROM history_order) FROM clips WHERE fingerprint = ?", operation: "assigning manual history position") { statement in
+            try bind(clip.fingerprint, to: statement, at: 1)
+            try expectDone(statement, operation: "assigning manual history position")
+        }
     }
 
     func clips(
         query: String = "",
         boardID: String? = nil,
         kind: ClipKind? = nil,
-        limit: Int = 500
+        limit: Int = 500,
+        order: ClipSortOrder? = nil
     ) throws -> [Clip] {
         guard limit > 0 else { return [] }
+        if order == .manual && boardID == nil { try appendMissingHistoryPositions() }
 
         var predicates: [String] = []
         var bindings: [QueryBinding] = []
@@ -181,13 +187,18 @@ actor HistoryDatabase {
             bindings.append(.text(kind.rawValue))
         }
 
+        let effectiveOrder = order ?? (boardID == nil ? .newestFirst : .manual)
+        let ordering: String
+        if effectiveOrder == .newestFirst { ordering = "last_used_at DESC, created_at DESC, id ASC" }
+        else if boardID != nil { ordering = "board_position IS NULL ASC, board_position ASC, last_used_at DESC, created_at DESC, id ASC" }
+        else { ordering = "(SELECT position FROM history_order WHERE clip_id = clips.id) IS NULL ASC, (SELECT position FROM history_order WHERE clip_id = clips.id) ASC, created_at ASC, id ASC" }
         let whereClause = predicates.isEmpty ? "" : " WHERE " + predicates.joined(separator: " AND ")
         let sql = """
             SELECT id, kind, title, text, source_app, source_bundle_id,
                    created_at, last_used_at, copy_count, fingerprint, board_id,
                    custom_title, board_position, payload
             FROM clips\(whereClause)
-            ORDER BY \(boardID == nil ? "last_used_at DESC, created_at DESC, id ASC" : "board_position IS NULL ASC, board_position ASC, last_used_at DESC, created_at DESC, id ASC")
+            ORDER BY \(ordering)
             LIMIT ?
             """
         bindings.append(.integer(Int64(limit)))
@@ -274,6 +285,28 @@ actor HistoryDatabase {
                 ))
             }
             return boards
+        }
+    }
+
+    /// Initialize starter boards once, without replacing existing organization or
+    /// recreating starter boards after a user intentionally deletes them.
+    func initializeDefaultBoards() throws {
+        try transaction {
+            try execute("CREATE TABLE IF NOT EXISTS app_initialization (key TEXT PRIMARY KEY NOT NULL)", operation: "creating initialization markers")
+            let initialized = try withStatement("SELECT 1 FROM app_initialization WHERE key = 'default-boards'", operation: "checking starter boards") { statement in
+                let result = sqlite3_step(statement)
+                guard result == SQLITE_ROW || result == SQLITE_DONE else { throw sqliteError(operation: "checking starter boards", code: result) }
+                return result == SQLITE_ROW
+            }
+            guard !initialized else { return }
+            if try boards().isEmpty {
+                for board in [
+                    Pinboard(name: "Favorites", color: "orange", icon: "star.fill"),
+                    Pinboard(name: "Work", color: "blue", icon: "briefcase.fill"),
+                    Pinboard(name: "Ideas", color: "purple", icon: "lightbulb.fill")
+                ] { try saveBoard(board) }
+            }
+            try execute("INSERT INTO app_initialization (key) VALUES ('default-boards')", operation: "recording starter boards")
         }
     }
 
@@ -682,8 +715,17 @@ actor HistoryDatabase {
         guard version <= schemaVersion else {
             throw HistoryDatabaseError.unsupportedSchemaVersion(version)
         }
-        if version == 1 {
-            try migrateVersion1ToVersion2(on: database)
+        if version == 1 { try migrateVersion1ToVersion2(on: database) }
+        if version == 1 || version == 2 {
+            try execute(database, sql: "BEGIN IMMEDIATE", operation: "starting history order migration")
+            do {
+                try createHistoryOrder(on: database)
+                try execute(database, sql: "PRAGMA user_version = 3", operation: "recording history order schema")
+                try execute(database, sql: "COMMIT", operation: "committing history order migration")
+            } catch {
+                try? execute(database, sql: "ROLLBACK", operation: "rolling back history order migration")
+                throw error
+            }
             return
         }
         guard version == 0 else { return }
@@ -720,11 +762,61 @@ actor HistoryDatabase {
             try execute(database, sql: "CREATE INDEX IF NOT EXISTS clips_last_used_idx ON clips(last_used_at DESC)", operation: "indexing clip recency")
             try execute(database, sql: "CREATE INDEX IF NOT EXISTS clips_board_idx ON clips(board_id)", operation: "indexing clip pinboards")
             try execute(database, sql: "CREATE INDEX IF NOT EXISTS clips_kind_idx ON clips(kind)", operation: "indexing clip kinds")
+            try createHistoryOrder(on: database)
             try execute(database, sql: "PRAGMA user_version = \(schemaVersion)", operation: "recording schema version")
             try execute(database, sql: "COMMIT", operation: "committing schema creation")
         } catch {
             try? execute(database, sql: "ROLLBACK", operation: "rolling back schema creation")
             throw error
+        }
+    }
+
+    private static func createHistoryOrder(on database: OpaquePointer) throws {
+        try execute(database, sql: "CREATE TABLE history_order (clip_id TEXT PRIMARY KEY REFERENCES clips(id) ON DELETE CASCADE, position INTEGER NOT NULL)", operation: "creating manual history order")
+        try execute(database, sql: "INSERT INTO history_order SELECT id, ROW_NUMBER() OVER (ORDER BY last_used_at DESC, created_at DESC, id ASC) - 1 FROM clips", operation: "initializing manual history order")
+    }
+
+    private func appendMissingHistoryPositions() throws {
+        try execute("INSERT INTO history_order SELECT id, (SELECT COALESCE(MAX(position), -1) FROM history_order) + ROW_NUMBER() OVER (ORDER BY last_used_at ASC, created_at ASC, id ASC) FROM clips WHERE id NOT IN (SELECT clip_id FROM history_order)", operation: "appending new clips to manual order")
+    }
+
+    /// Read and write in one actor turn and transaction so a capture cannot race a move.
+    func moveClips(ids selection: [String], target: String, after: Bool, boardID: String?) throws {
+        try transaction {
+            let existing: [String]
+            if let boardID { existing = try clipIDs(in: boardID) }
+            else {
+                try appendMissingHistoryPositions()
+                existing = try withStatement("SELECT clip_id FROM history_order ORDER BY position ASC, clip_id ASC", operation: "loading manual history IDs") { statement in
+                    var ids: [String] = []
+                    while true {
+                        let result = sqlite3_step(statement)
+                        if result == SQLITE_DONE { break }
+                        guard result == SQLITE_ROW else { throw sqliteError(operation: "loading manual history IDs", code: result) }
+                        ids.append(String(cString: sqlite3_column_text(statement, 0)))
+                    }
+                    return ids
+                }
+            }
+            let reordered = ItemOrdering.inserting(selection, at: target, after: after, in: existing)
+            guard reordered != existing else { return }
+            if let boardID {
+                try withStatement("UPDATE clips SET board_position = ? WHERE id = ? AND board_id = ?", operation: "moving pinboard clips") { statement in
+                    for (position, id) in reordered.enumerated() {
+                        sqlite3_reset(statement); sqlite3_clear_bindings(statement)
+                        try bind(position, to: statement, at: 1); try bind(id, to: statement, at: 2)
+                        try bind(boardID, to: statement, at: 3); try expectDone(statement, operation: "moving pinboard clips")
+                    }
+                }
+            } else {
+                try withStatement("UPDATE history_order SET position = ? WHERE clip_id = ?", operation: "moving history clips") { statement in
+                    for (position, id) in reordered.enumerated() {
+                        sqlite3_reset(statement); sqlite3_clear_bindings(statement)
+                        try bind(position, to: statement, at: 1); try bind(id, to: statement, at: 2)
+                        try expectDone(statement, operation: "moving history clips")
+                    }
+                }
+            }
         }
     }
 

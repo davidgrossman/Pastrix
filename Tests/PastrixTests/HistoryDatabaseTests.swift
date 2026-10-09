@@ -5,6 +5,65 @@ import XCTest
 @testable import Pastrix
 
 final class HistoryDatabaseTests: XCTestCase {
+    func testDefaultBoardsInitializeOnceAndRespectExistingBoards() async throws {
+        try await withTemporaryDatabase { database, url in
+            try await database.initializeDefaultBoards()
+            let initial = try await database.boards()
+            XCTAssertEqual(initial.map(\.name), ["Favorites", "Work", "Ideas"])
+            XCTAssertTrue(initial.allSatisfy { UUID(uuidString: $0.id) != nil })
+            for board in initial { try await database.deleteBoard(id: board.id) }
+            let reopened = try HistoryDatabase(url: url)
+            try await reopened.initializeDefaultBoards()
+            let remaining = try await reopened.boards()
+            XCTAssertTrue(remaining.isEmpty)
+        }
+        try await withTemporaryDatabase { database, _ in
+            try await database.saveBoard(Pinboard(id: "custom", name: "Personal", color: "blue"))
+            try await database.initializeDefaultBoards()
+            let boards = try await database.boards()
+            XCTAssertEqual(boards.map(\.id), ["custom"])
+        }
+    }
+    func testManualHistoryOrderSurvivesRecaptureNewClipsAndReopen() async throws {
+        try await withTemporaryDatabase { database, url in
+            for id in ["a", "b", "c"] { try await database.upsert(makeClip(id: id, text: id, fingerprint: "fp-" + id)) }
+            try await database.moveClips(ids: ["c"], target: "a", after: false, boardID: nil)
+            let curated = try await database.clips(order: .manual).map(\.id)
+            XCTAssertEqual(curated, ["c", "a", "b"])
+            var recapture = makeClip(id: "replacement", text: "b", fingerprint: "fp-b")
+            recapture.lastUsedAt = Date().addingTimeInterval(100)
+            try await database.upsert(recapture)
+            try await database.upsert(makeClip(id: "new", text: "new", fingerprint: "fp-new"))
+            let manual = try await database.clips(order: .manual).map(\.id)
+            XCTAssertEqual(manual, ["c", "a", "b", "new"])
+            let newest = try await database.clips(order: .newestFirst).map(\.id)
+            XCTAssertEqual(newest.first, "b")
+            let reopened = try HistoryDatabase(url: url)
+            let persisted = try await reopened.clips(order: .manual).map(\.id)
+            XCTAssertEqual(persisted, manual)
+            let filtered = try await reopened.clips(query: "b", order: .manual).map(\.id)
+            XCTAssertEqual(filtered, ["b"])
+            try await database.delete(ids: ["a"])
+            let afterDelete = try await database.clips(order: .manual).map(\.id)
+            XCTAssertEqual(afterDelete, ["c", "b", "new"])
+        }
+    }
+
+    func testManualBoardMovePreservesGroupOrderAndRecapture() async throws {
+        try await withTemporaryDatabase { database, _ in
+            try await database.saveBoard(Pinboard(id: "board", name: "Board", color: "blue"))
+            for id in ["a", "b", "c", "d"] {
+                try await database.upsert(makeClip(id: id, text: id, fingerprint: id, boardID: "board"))
+            }
+            try await database.moveClips(ids: ["b", "a"], target: "d", after: true, boardID: "board")
+            let moved = try await database.clips(boardID: "board", order: .manual).map(\.id)
+            XCTAssertEqual(moved, ["c", "d", "a", "b"])
+            try await database.upsert(makeClip(id: "replacement", text: "c", fingerprint: "c"))
+            let recaptured = try await database.clips(boardID: "board", order: .manual).map(\.id)
+            XCTAssertEqual(recaptured, moved)
+        }
+    }
+
     func testDuplicateFingerprintPreservesIdentityAndPinWhileRefreshingClip() async throws {
         try await withTemporaryDatabase { database, _ in
             let board = Pinboard(id: "favorites", name: "Favorites", color: "red", position: 0)
@@ -423,7 +482,7 @@ final class HistoryDatabaseTests: XCTestCase {
         XCTAssertNil(clip.boardPosition)
         XCTAssertNil(clip.customTitle)
         XCTAssertEqual(clip.payload, payload)
-        XCTAssertEqual(try databaseUserVersion(at: url), 2)
+        XCTAssertEqual(try databaseUserVersion(at: url), 3)
         XCTAssertEqual(
             try tableColumns("clips", at: url).intersection(["custom_title", "board_position"]),
             Set(["custom_title", "board_position"])

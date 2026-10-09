@@ -1,3 +1,4 @@
+import AppKit
 import XCTest
 @testable import Pastrix
 
@@ -150,6 +151,65 @@ final class ShelfInteractionTests: XCTestCase {
         }
         let deleted = try await model.database.clip(id: ids[1])
         XCTAssertNil(deleted)
+    }
+
+    @MainActor
+    func testMouseModifiersRemainThoseOfMouseDownUntilDelayedButtonAction() {
+        let modifiers = ClipMouseModifiers()
+        modifiers.record(.command)
+        let releasedMouseUp = NSEvent.mouseEvent(
+            with: .leftMouseUp, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: 0, context: nil, eventNumber: 1, clickCount: 1, pressure: 0
+        )
+        XCTAssertEqual(modifiers.consume(currentEvent: releasedMouseUp), .command)
+        XCTAssertNil(modifiers.captured)
+        XCTAssertEqual(modifiers.lastRecorded, .command)
+        XCTAssertEqual(modifiers.consume(currentEvent: releasedMouseUp), [])
+    }
+
+    @MainActor
+    func testShelfPointerSelectionKeepsViewportAndSupportsExplicitMultipleSelection() async throws {
+        let model = try AppModel(demo: true)
+        try await waitUntil { model.clips.count >= 4 }
+        let clips = Array(model.clips.prefix(4))
+        model.selectFromShelf(clips[0], modifiers: [])
+        model.selectFromShelf(clips[2], modifiers: .command)
+        XCTAssertEqual(model.selectedIDs, [clips[0].id, clips[2].id])
+        XCTAssertNil(model.navigationTargetID, "Pointer changes must not recenter the shelf")
+
+        model.selectingMultiple = true
+        model.selectFromShelf(clips[3], modifiers: [])
+        model.selectFromShelf(clips[2], modifiers: [])
+        XCTAssertEqual(model.selectedIDs, [clips[0].id, clips[3].id])
+        XCTAssertEqual(model.dragIDs(startingWith: clips[3]), [clips[0].id, clips[3].id])
+        XCTAssertNil(model.navigationTargetID)
+
+        model.selectingMultiple = false
+        model.selectFromShelf(clips[0], modifiers: [])
+        model.selectFromShelf(clips[2], modifiers: .shift)
+        XCTAssertEqual(model.selectedIDs, Set(clips.prefix(3).map(\.id)))
+        model.moveSelection(1)
+        XCTAssertEqual(model.navigationTargetID, clips[1].id)
+        let navigation = model.navigationTargetID
+        model.selectFromShelf(clips[3], modifiers: [])
+        XCTAssertEqual(model.navigationTargetID, navigation, "Only keyboard navigation requests scrolling")
+    }
+
+    @MainActor
+    func testArrangeClipsClearsFiltersAndRetainsSelectedPinboard() async throws {
+        let model = try AppModel(demo: true)
+        try await waitUntil { !model.boards.isEmpty }
+        model.selectedBoardID = "work"
+        model.query = "synthetic filter"
+        model.kindFilter = .text
+        model.sortOrder = .newestFirst
+        XCTAssertFalse(model.canReorderClips)
+        model.beginArrangingClips()
+        XCTAssertEqual(model.selectedBoardID, "work")
+        XCTAssertEqual(model.query, "")
+        XCTAssertNil(model.kindFilter)
+        XCTAssertEqual(model.sortOrder, .manual)
+        XCTAssertTrue(model.canReorderClips)
     }
 
     @MainActor

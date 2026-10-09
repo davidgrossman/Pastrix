@@ -37,6 +37,8 @@ Optional provisioned signing configuration:
   PASTRIX_ENTITLEMENTS           Entitlements plist to apply
   PASTRIX_PROVISIONING_PROFILE   Matching .provisionprofile to embed
   PASTRIX_CLOUDKIT_CONTAINER     Explicit iCloud container identifier
+  PASTRIX_BUILD_SDK              Optional local SDK path (uses native SwiftPM)
+  PASTRIX_BUILD_SCRATCH_PATH     Optional isolated build directory
 
 CloudKit builds require all four settings. The source Info.plist is never
 modified; PastrixCloudKitContainerIdentifier is injected only into that staged,
@@ -255,9 +257,17 @@ elif [[ "$ENTITLEMENTS_HAVE_CLOUDKIT" == true ]]; then
 fi
 
 cd "$PROJECT_ROOT"
-swift build -c release -Xswiftc -gnone
+BUILD_ARGS=(-c release)
+if [[ -n "${PASTRIX_BUILD_SDK:-}" ]]; then
+    [[ -d "$PASTRIX_BUILD_SDK" ]] || fail "PASTRIX_BUILD_SDK must be an existing SDK directory."
+    BUILD_ARGS+=(--build-system native --sdk "$PASTRIX_BUILD_SDK")
+fi
+if [[ -n "${PASTRIX_BUILD_SCRATCH_PATH:-}" ]]; then
+    BUILD_ARGS+=(--scratch-path "$PASTRIX_BUILD_SCRATCH_PATH")
+fi
+swift build "${BUILD_ARGS[@]}" -Xswiftc -gnone
 
-BIN_DIR="$(swift build -c release --show-bin-path)"
+BIN_DIR="$(swift build "${BUILD_ARGS[@]}" --show-bin-path)"
 mkdir -p "$STAGED_APP/Contents/MacOS" "$STAGED_APP/Contents/Resources"
 cp "$BIN_DIR/Pastrix" "$STAGED_APP/Contents/MacOS/Pastrix"
 cp "$INFO_PLIST" "$STAGED_APP/Contents/Info.plist"
@@ -337,3 +347,4 @@ elif [[ "$RESOLVED_IDENTITY_NAME" != 'Developer ID Application:'* ]]; then
 else
     print "Distribution status: Developer ID signed; notarization has not been performed by this script."
 fi
+print "Release plan: Developer ID-signed, Apple-notarized distribution is planned; this script does not perform notarization."

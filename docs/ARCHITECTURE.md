@@ -69,3 +69,12 @@ The supplied purple clipboard P artwork is retained as `resources/Pastrix-master
 `CloudSyncModels`, `CloudSyncCrypto`, `CloudSyncKeyStore`, `CloudSyncEngine` and `CloudSyncCloudKit` separate authenticated board snapshots, key establishment, optimistic conflict checks and the private CloudKit transport. `PinboardSyncController` persists opt-in board choices, account/key binding and opaque checkpoints; `PinboardSyncSettings` exposes setup, board selection and explicit conflict choices. Database imports compare the exact local board state transactionally before replacing a remote snapshot, retaining removed clips as unpinned history. Sync never uses capture deduplication as a substitute for exact-ID replication.
 
 The engine is tested using in-memory transports. Runtime and packaging gates require actual signed CloudKit capabilities before accessing Apple services. The public ad-hoc DMG is local-only until provisioning and two-Mac acceptance tests are completed. See [the complete sync contract and setup](ICLOUD-SYNC.md).
+
+
+## Shortcut, Settings and manual history ordering
+
+`GlobalShortcut` validates and persists the Open Pastrix key combination. The AppKit delegate retains the old Carbon registration until a replacement succeeds; demo mode never registers global shortcuts. `SettingsView` supplies native sidebar/grouped forms hosted in a standard resizable `NSWindow`. A separate welcome window exposes the current shortcut and recorder on first launch. Existing settings decode with defaults for the added fields.
+
+Schema 3 adds an independent local `history_order` table with cascading deletion. Migration seeds history order from the current recency order; subsequent captures append identities while fingerprint recapture preserves position. Pinboards retain their existing positions. Reordering reads every ID and writes in a single actor transaction, avoiding capture races and large payload decoding. Manual history order is local and is not exported by the existing JSON backup or iCloud board formats. The Quick Menu always queries recency independently of the shelf’s order preference.
+
+The shelf follows system appearance through semantic colors and materials. Clip content remains opaque, while navigation framing uses a native material with an explicit accessibility fallback. [Current implementation validation](VALIDATION-IMPROVEMENTS.md) records the available SDK workaround, missing SwiftUI macro/XCTest toolchain components and live acceptance checks.

@@ -16,12 +16,34 @@ final class AppModel: ObservableObject {
     @Published var selectedBoardID: String? { didSet { refresh() } }
     @Published var kindFilter: ClipKind? { didSet { refresh() } }
     @Published var selectedIDs: Set<String> = []
+    @Published var selectingMultiple = false
+    @Published private(set) var navigationTargetID: String?
     @Published var isPaused = false { didSet { clipboard.paused = isPaused } }
     @Published var status: String?
     @Published var errorMessage: String?
     @Published var totalCount = 0
     @Published var settings: AppSettings
-    @Published var showingSettings = false
+    @Published var showingSettings = false { didSet { if showingSettings { onShowSettings?() } } }
+    @Published var shortcutError: String?
+    var onShowSettings: (() -> Void)?
+    var onShowWelcome: (() -> Void)?
+    var onChangeShortcut: ((GlobalShortcut) -> Bool)?
+    var sortOrder: ClipSortOrder {
+        get { selectedBoardID == nil ? settings.historyOrder : settings.boardOrder }
+        set {
+            if selectedBoardID == nil { settings.historyOrder = newValue } else { settings.boardOrder = newValue }
+            if !isDemo { settings.save() }
+            refresh()
+        }
+    }
+    var canReorderClips: Bool { sortOrder == .manual && query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && kindFilter == nil }
+    func changeShortcut(_ shortcut: GlobalShortcut) {
+        guard shortcut.isValid else { shortcutError = "Choose a shortcut with ⌘, ⌃ or ⌥ that leaves editing and queue commands available."; return }
+        if shortcut == settings.shortcut && shortcutError == nil { return }
+        guard onChangeShortcut?(shortcut) == true else { shortcutError = "\(shortcut.display) is unavailable. Choose another shortcut or open Pastrix from the menu bar."; return }
+        settings.shortcut = shortcut; shortcutError = nil
+        if !isDemo { settings.save() }
+    }
     @Published var expanded = false { didSet { onResize?() } }
     @Published var renamingClip: Clip?
     @Published private(set) var queue: [Clip] = []
@@ -75,6 +97,7 @@ final class AppModel: ObservableObject {
         Task {
             do {
                 if demo { try await seedDemo() }
+                else { try await database.initializeDefaultBoards() }
                 try await database.prune(maxItems: settings.maxItems, maxAgeDays: settings.retentionDays)
                 refresh()
                 if !demo { clipboard.start() }
@@ -98,11 +121,11 @@ final class AppModel: ObservableObject {
     }
     func refresh() {
         refreshTask?.cancel()
-        let query = query, board = selectedBoardID, kind = kindFilter
+        let query = query, board = selectedBoardID, kind = kindFilter, order = sortOrder
         refreshTask = Task {
             do {
                 try await Task.sleep(for: .milliseconds(90))
-                let results = try await database.clips(query: query, boardID: board, kind: kind, limit: 500)
+                let results = try await database.clips(query: query, boardID: board, kind: kind, limit: 500, order: order)
                 let recent = try await database.clips(limit: 5)
                 let boardResults = try await database.boards()
                 let count = try await database.count()
@@ -131,6 +154,15 @@ final class AppModel: ObservableObject {
         let id = clips[min(max(current + delta, 0), clips.count - 1)].id
         selectedIDs = [id]
         selectionAnchor = id
+        navigationTargetID = id
+    }
+    func selectFromShelf(_ clip: Clip, modifiers: NSEvent.ModifierFlags) {
+        select(clip, extending: selectingMultiple || modifiers.contains(.command), range: modifiers.contains(.shift))
+    }
+    func beginArrangingClips() {
+        query = ""
+        kindFilter = nil
+        sortOrder = .manual
     }
     func selectAll() {
         selectedIDs = Set(clips.map(\.id))
@@ -334,20 +366,21 @@ final class AppModel: ObservableObject {
         Task { do { try await database.reorderBoards(ids: ids); refresh() } catch { report(error) } }
     }
     func moveClip(_ clip: Clip, by delta: Int) {
-        guard let board = selectedBoardID else { return }
-        Task { do {
-            var ids = try await database.clips(boardID: board, limit: 50_000).map(\.id)
-            guard let index = ids.firstIndex(of: clip.id) else { return }
-            ids.swapAt(index, min(max(index + delta, 0), ids.count - 1))
-            try await database.reorderClips(ids: ids, boardID: board); refresh()
-        } catch { report(error) } }
+        guard canReorderClips, let index = clips.firstIndex(where: { $0.id == clip.id }) else { return }
+        let targetIndex = index + delta
+        guard clips.indices.contains(targetIndex) else { return }
+        let moving = selectedIDs.contains(clip.id) ? selectedClips.map(\.id) : [clip.id]
+        let candidates = delta < 0 ? Array(clips[..<index].reversed()) : Array(clips[(index + 1)...])
+        guard let target = candidates.first(where: { !moving.contains($0.id) }) else { return }
+        reorderClips(draggedIDs: moving, to: target.id, after: delta > 0)
     }
-    func reorderClips(draggedIDs: [String], to target: String) {
-        guard let board = selectedBoardID else { return }
+    func reorderClips(draggedIDs: [String], to target: String, after: Bool) {
+        guard canReorderClips else { return }
+        let board = selectedBoardID
         Task { do {
-            let existing = try await database.clips(boardID: board, limit: 50_000).map(\.id)
-            let ids = ItemOrdering.moving(draggedIDs, to: target, in: existing)
-            try await database.reorderClips(ids: ids, boardID: board); refresh()
+            try await database.moveClips(ids: draggedIDs, target: target, after: after, boardID: board)
+            if board != nil { pinboardSync.noteLocalBoardAssignment() }
+            refresh()
         } catch { report(error) } }
     }
     func deleteBoard(_ board: Pinboard) {

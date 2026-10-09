@@ -28,15 +28,21 @@ Open the DMG, drag **Pastrix.app** onto **Applications**, eject, and open the ap
 
 > **Early public preview:** Pastrix 1.4.0 requires Apple Silicon and macOS 14+. It is ad-hoc signed and **not notarized**. If macOS blocks it, use **System Settings → Privacy & Security → Open Anyway** for this app. The public build is local-only. Accessibility is optional, needed only for direct paste and ordinary ⌘V during a queue.
 
+We plan to offer Developer ID-signed, Apple-notarized releases to simplify first launch. Notarization is not yet available for this preview.
+
 ![Pastrix’s visual clipboard shelf showing text, links, colors, and images](docs/assets/paster-shelf.jpg)
 
 ## What it does
 
 - Captures text, links, colors, images, PDFs, rich text, and Finder file references.
 - Finds clips by content, source app, or type.
+- Starts with Favorites, Work and Ideas pinboards when no boards exist. Existing boards are preserved, and deleted starter boards stay deleted.
 - Gives pinboards their own colored icons: pick a star for Favorites, a briefcase for Work, or a lightbulb for Ideas. Right-click a board → **Choose Icon**, or open **Edit Pinboard** for the searchable visual picker. Keep a simple color dot if you prefer. Existing choices are preserved.
 - Keeps important clips on pinboards. Drag a clip onto a board name, or Command-click / Shift-click to select a group and drag them together. Undo reverses the last board assignment.
-- Opens with ⌘⇧V and supports keyboard navigation and a five-item Quick Menu.
+- Copy selected clips together in shelf order, or use **Copy Selected as Text** to combine available text with line breaks. A selected-group menu offers copying, pinboard assignment and queueing; destination apps vary in support for multiple clipboard items.
+- Opens with ⌘⇧V by default. Change or restore the shortcut in the welcome window or Settings → Shortcuts; open the native Settings window with ⌘,. Supports keyboard navigation and a five-item Quick Menu.
+- Choose **Manual Order** to curate history or pinboards with drag insertion, context-menu moves or ⌥⌘← / →. New clips append and repeat copies keep their place; **Newest First** remains available. Clear search and type filters before rearranging.
+- Search Settings by category or terms such as “login” and “ignored apps.” Choose excluded apps with the native application picker, or enter bundle identifiers for advanced exclusions.
 - Collects a run of copies into a session queue and pastes them back in order.
 - Creates snippets, renames clips, shares through the macOS share sheet, and supports JSON backup and restore.
 - Pauses capture, excludes apps, and bounds history by age, count, and size.
@@ -63,6 +69,8 @@ Sensitive clipboard markers and common password-manager apps are excluded by def
 | ⌃⌘V | Paste next queued clip |
 | ⌘1–9 | Quick-paste a visible clip |
 | ⌘F | Search |
+| ⌘, | Open Settings |
+| ⌥⌘← / → | Move selected clips in Manual Order |
 | Arrow keys | Move through clips |
 | ⌘Click / ⇧Click | Select individual clips / a range |
 | ⌘Z | Undo the last deletion or pinboard assignment |
@@ -72,7 +80,7 @@ Sensitive clipboard markers and common password-manager apps are excluded by def
 
 Pastrix uses Swift 6, SwiftUI, AppKit, and system SQLite. It has no third-party package dependencies.
 
-Requirements: macOS 14 or later, Apple Silicon, and a Swift 6 toolchain.
+Requirements: macOS 14 or later, Apple Silicon, and full Xcode with a Swift 6 toolchain selected through `xcode-select`. Full Xcode supplies the XCTest and SwiftUI compiler components needed for the complete test suite; some standalone Command Line Tools installations cannot run it.
 
     git clone https://github.com/davidgrossman/Pastrix.git
     cd Pastrix
@@ -86,6 +94,8 @@ The bundle script creates an ad-hoc-signed app at **dist/Pastrix.app** and a ZIP
 For an isolated interface preview that never reads or writes the system clipboard:
 
     dist/Pastrix.app/Contents/MacOS/Pastrix --demo
+
+Add `--demo-light` or `--demo-dark` to preview either appearance without changing system settings. See [improvement validation and toolchain limits](docs/VALIDATION-IMPROVEMENTS.md) for the available local build workaround and remaining acceptance checks.
 
 ## Contributing
 

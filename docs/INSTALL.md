@@ -4,6 +4,8 @@ Pastrix is a free, native clipboard manager for **Apple Silicon Macs running mac
 
 **Early preview:** the app is ad-hoc signed and **not notarized**. If macOS blocks it, use **System Settings → Privacy & Security → Open Anyway** for this app. Do not disable Gatekeeper or remove quarantine. The public download is local-only; iCloud requires a separately provisioned build. There is no iPhone or iPad app yet.
 
+We plan to offer Developer ID-signed, Apple-notarized releases to simplify first launch. Notarization is not yet available for this preview.
+
 ## Homebrew — one command
 
 With [Homebrew](https://brew.sh) already installed, run:

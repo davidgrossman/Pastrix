@@ -31,12 +31,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private let releaseTools = ReleaseTools()
     private let queueMonitor = QueuePasteMonitor()
     private var queuePanel: NSPanel?
+    private var settingsWindow: NSWindow?
+    private var welcomeWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         do {
             let demo = CommandLine.arguments.contains("--demo")
+            if demo && CommandLine.arguments.contains("--demo-light") { NSApp.appearance = NSAppearance(named: .aqua) }
+            if demo && CommandLine.arguments.contains("--demo-dark") { NSApp.appearance = NSAppearance(named: .darkAqua) }
             let model = try AppModel(demo: demo); self.model = model
+            model.onShowSettings = { [weak self] in self?.openSettings() }
+            model.onShowWelcome = { [weak self] in self?.openWelcome() }
+            model.onChangeShortcut = { [weak self] shortcut in self?.replaceShortcut(shortcut) ?? false }
             model.onDismiss = { [weak self] in self?.hide() }
             model.onResize = { [weak self] in self?.resize() }
             model.onQueueSessionChanged = { [weak self] in self?.updateQueueSession() }
@@ -52,8 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             self.panel = panel
             installMenus(); registerShortcut(); installKeyboard()
             if demo || !UserDefaults.standard.bool(forKey: LegacyCompatibility.hasLaunchedKey) {
-                show()
-                if !demo { UserDefaults.standard.set(true, forKey: LegacyCompatibility.hasLaunchedKey) }
+                openWelcome()
             }
             workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -71,7 +77,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private func installMenus() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = MenuBarIcon.make()
-        item.button?.toolTip = "Pastrix · Click for menu · ⌘⇧V for history"
+        item.button?.toolTip = "Pastrix · Click for menu · \(model?.settings.shortcut.display ?? GlobalShortcut.default.display) for history"
         statusItem = item
         let quickMenu = NSMenu(); quickMenu.delegate = self; item.menu = quickMenu
         let main = NSMenu()
@@ -83,7 +89,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         appMenu.addItem(withTitle: "Start / End Clip Queue", action: #selector(toggleQueueSession), keyEquivalent: "")
         appMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "")
         appMenu.addItem(withTitle: "Send Feedback…", action: #selector(feedback), keyEquivalent: "")
-        appMenu.addItem(withTitle: "Settings…", action: #selector(settings), keyEquivalent: ",")
+        let settingsItem = appMenu.addItem(withTitle: "Settings…", action: #selector(settings), keyEquivalent: ",")
+        settingsItem.target = self
         appMenu.addItem(.separator()); appMenu.addItem(withTitle: "Quit Pastrix", action: #selector(quit), keyEquivalent: "q")
         appItem.submenu = appMenu; main.addItem(appItem)
         let editItem = NSMenuItem(); let edit = NSMenu(title: "Edit")
@@ -128,8 +135,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         monitoring.state = model.isPaused ? .off : .on
         monitoring.image = NSImage(systemSymbolName: "clipboard", accessibilityDescription: nil)
         menu.addItem(.separator())
-        let history = menu.addItem(withTitle: "Open History", action: #selector(show), keyEquivalent: "v")
-        history.keyEquivalentModifierMask = [.command, .shift]
+        let history = menu.addItem(withTitle: "Open History (\(model.settings.shortcut.display))", action: #selector(show), keyEquivalent: "")
+        history.image = NSImage(systemSymbolName: "clipboard", accessibilityDescription: nil)
         menu.addItem(withTitle: model.isQueueSessionActive ? "End Clip Queue" : "Start Clip Queue", action: #selector(toggleQueueSession), keyEquivalent: "")
         if !model.queue.isEmpty {
             let next = menu.addItem(withTitle: "Paste Next (\(model.queue.count) queued)", action: #selector(pasteNext), keyEquivalent: "v")
@@ -185,10 +192,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     }
     @objc func toggle() { panel?.isVisible == true ? hide() : show() }
     @objc private func pause() { model?.isPaused.toggle() }
-    @objc private func settings() { show(); model?.showingSettings = true }
+    @objc private func settings() { model?.showingSettings = true }
+    private func openSettings() {
+        guard let model else { return }
+        hide()
+        if settingsWindow == nil {
+            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 760, height: 560), styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
+            window.title = model.isDemo ? "Pastrix Settings — Demo" : "Pastrix Settings"
+            window.isReleasedWhenClosed = false; window.delegate = self
+            window.contentView = NSHostingView(rootView: PastrixSettingsView(model: model))
+            window.minSize = NSSize(width: 700, height: 480); window.center()
+            settingsWindow = window
+        }
+        settingsWindow?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+    }
+    private func openWelcome() {
+        guard let model else { return }
+        hide()
+        if welcomeWindow == nil {
+            let window = NSWindow(contentRect: .zero, styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            window.title = model.isDemo ? "Welcome to Pastrix — Demo" : "Welcome to Pastrix"
+            window.isReleasedWhenClosed = false
+            window.contentView = NSHostingView(rootView: WelcomeView(model: model) { [weak self] in
+                self?.welcomeWindow?.close()
+                if !model.isDemo { UserDefaults.standard.set(true, forKey: LegacyCompatibility.hasLaunchedKey) }
+                self?.show()
+            })
+            window.center(); welcomeWindow = window
+        }
+        welcomeWindow?.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+    }
+    func windowWillClose(_ notification: Notification) {
+        if notification.object as? NSWindow === settingsWindow { model?.showingSettings = false; model?.saveSettings() }
+    }
     @objc private func quit() { NSApp.terminate(nil) }
     @objc func show() {
         guard let panel, let model else { return }
+        settingsWindow?.orderOut(nil); model.showingSettings = false
         let front = NSWorkspace.shared.frontmostApplication
         if front?.processIdentifier != ProcessInfo.processInfo.processIdentifier { model.targetApplication = front }
         resize(); model.refresh(); panel.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
@@ -220,10 +260,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             }
             return noErr
         }, 1, &spec, pointer, &hotKeyHandler)
-        let result = RegisterEventHotKey(UInt32(kVK_ANSI_V), UInt32(cmdKey | shiftKey), EventHotKeyID(signature: 0x50535452, id: 1), GetApplicationEventTarget(), 0, &hotKey)
-        if result != noErr { model?.notify("⌘⇧V is in use by another app. Open Pastrix from the menu bar.") }
+        guard model?.isDemo == false else { return }
+        if let shortcut = model?.settings.shortcut, !replaceShortcut(shortcut) {
+            model?.shortcutError = "\(shortcut.display) is in use. Choose another shortcut or use the menu bar."
+        }
         let queueResult = RegisterEventHotKey(UInt32(kVK_ANSI_V), UInt32(cmdKey | controlKey), EventHotKeyID(signature: 0x50535452, id: 2), GetApplicationEventTarget(), 0, &queueHotKey)
         if queueResult != noErr { model?.notify("⌃⌘V is in use. Use Paste Next in the queue bar.") }
+    }
+    private func replaceShortcut(_ shortcut: GlobalShortcut) -> Bool {
+        guard shortcut.isValid else { return false }
+        if model?.isDemo == true { return true }
+        if shortcut == model?.settings.shortcut && hotKey != nil { return true }
+        var replacement: EventHotKeyRef?
+        let result = RegisterEventHotKey(shortcut.keyCode, shortcut.modifiers, EventHotKeyID(signature: 0x50535452, id: 1), GetApplicationEventTarget(), 0, &replacement)
+        guard result == noErr else { return false }
+        if let hotKey { UnregisterEventHotKey(hotKey) }
+        hotKey = replacement
+        statusItem?.button?.toolTip = "Pastrix · \(shortcut.display) for history"
+        return true
     }
     private func installKeyboard() {
         keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
@@ -244,7 +298,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         let command = event.modifierFlags.contains(.command)
         let editing = (panel.firstResponder as? NSTextView)?.isEditable == true
         if event.keyCode == 53 { hide(); return nil }
-        if command && event.charactersIgnoringModifiers == "," { model.showingSettings = true; return nil }
+        if command && event.charactersIgnoringModifiers == "," { settings(); return nil }
         if command && event.charactersIgnoringModifiers == "r" {
             model.renamingClip = model.selectedClip; return nil
         }
@@ -261,6 +315,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             model.pasteSelected(plain: event.modifierFlags.contains(.shift)); return nil
         }
         if !editing {
+            if command && event.modifierFlags.contains(.option), [123, 124].contains(event.keyCode), let clip = model.selectedClip {
+                model.moveClip(clip, by: event.keyCode == 123 ? -1 : 1); return nil
+            }
             switch event.keyCode {
             case 123: model.moveSelection(-1); return nil
             case 124: model.moveSelection(1); return nil
