@@ -25,7 +25,7 @@ No stack guarantees zero failures. Defensive data handling, focused regression t
 - `SharingService.swift`: native sharing and private temporary export lifecycle; no outbound sharing occurs until the user completes the system picker.
 - `PasteQueue.swift`: deduplicated, ordered session queue; `ItemOrdering.swift`: pure board/clip drag ordering.
 - `MenuBarIcon.swift`: resolution-independent template glyph for light/dark menu bars.
-- `PasterApp.swift`: menu-bar application, floating shelf across Spaces, Carbon registered hotkey (no global keystroke monitoring permission), and local keyboard routing.
+- `PastrixApp.swift`: menu-bar application, floating shelf across Spaces, Carbon registered hotkey (no global keystroke monitoring permission), and local keyboard routing.
 - `ShelfView.swift`: composable native interface and previews. App icons are resolved locally; no preview network requests occur.
 
 No private clipboard text is logged. Only synthetic fixtures are used in tests and demo mode. Real history capture begins on normal app launch, ignoring the pre-existing clipboard.
@@ -53,3 +53,11 @@ ReleaseTools compares numeric versions against the local project distribution bu
 The public release removes the local build-path dependency. Check for Updates requests GitHub's public latest-release metadata only when clicked, using an ephemeral session with timeouts and without cookies or credentials. Invalid responses and unavailable releases show errors, never a false up-to-date result. Downloads and installation remain user-controlled. Feedback still supports local drafts and now offers an explicit Open GitHub Issue button; draft contents are not transferred automatically.
 
 The source is MIT-licensed. The arm64 ZIP contains the executable, Info.plist, original app icon, and ad-hoc signature. It contains no development database, backup, logs, account state or credentials. Public builds remain previews until broader compatibility and notarized distribution are established.
+
+## Version 1.2.2 Pastrix rebrand
+
+Version 1.2.2 changes the public product, app bundle, executable, package targets, repository, and website name from Paster to Pastrix. It does not add a feature or broaden compatibility claims. Existing history remains at `~/Library/Application Support/Paster/history.sqlite`, and the bundle identifier remains `com.davidgrossman.Paster`, so an update continues to use the same local data and macOS identity.
+
+The renamed source targets are `Sources/Pastrix` and `Tests/PastrixTests`. The release archive is `Pastrix-1.2.2-macOS-arm64.zip` and contains `Pastrix.app`.
+
+The supplied purple clipboard P artwork is retained as `resources/Pastrix-master.png`. Running `swift scripts/make-icon.swift` reproducibly creates `resources/Pastrix.iconset`, `resources/Pastrix.icns`, and the 512 px website icon at `docs/assets/pastrix-icon.png`. The menu bar continues to use a separate monochrome clipboard-and-P template glyph so it adapts to light and dark menu bars.

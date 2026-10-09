@@ -1,7 +1,7 @@
-# Paster's privacy model
+# Pastrix's privacy model
 
 - Clipboard history is stored on your Mac in `~/Library/Application Support/Paster/history.sqlite` using SQLite. There is no account, cloud history sync or analytics.
-- History is **not separately encrypted by Paster**. Your macOS account can read it; FileVault protects a locked disk, not a logged-in compromised account.
+- History is **not separately encrypted by Pastrix**. Your macOS account can read it; FileVault protects a locked disk, not a logged-in compromised account.
 - Monitoring starts with newly copied items, not clipboard contents that predate launch. Sensitive clipboard markers and several password-manager apps are excluded by default. Ordinary text containing a secret cannot always be recognized; exclude sensitive apps or pause monitoring.
 - Default limits are 2,000 unpinned items / 30 days, 20 MB per captured item, and approximately 512 MB of unpinned payloads. Pinboard items survive ordinary retention. SQLite may retain freed file space for reuse.
 - Accessibility is used for direct paste. During a user-started queue session only, a keyboard event tap intercepts plain Command-V to paste the next clip. Keystrokes are not logged. Ending the session removes the tap.

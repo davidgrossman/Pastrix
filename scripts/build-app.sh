@@ -8,7 +8,7 @@ SCRIPT_DIR="${0:A:h}"
 PROJECT_ROOT="${SCRIPT_DIR:h}"
 INFO_PLIST="$PROJECT_ROOT/resources/Info.plist"
 DIST_DIR="$PROJECT_ROOT/dist"
-APP_NAME="Paster.app"
+APP_NAME="Pastrix.app"
 APP="$DIST_DIR/$APP_NAME"
 
 if [[ "$(uname -m)" != "arm64" ]]; then
@@ -18,15 +18,26 @@ fi
 
 VERSION="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$INFO_PLIST")"
 BUILD="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$INFO_PLIST")"
+BUNDLE_IDENTIFIER="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$INFO_PLIST")"
+CLIP_DRAG_IDENTIFIER="$(/usr/libexec/PlistBuddy -c 'Print :UTExportedTypeDeclarations:0:UTTypeIdentifier' "$INFO_PLIST")"
+BOARD_DRAG_IDENTIFIER="$(/usr/libexec/PlistBuddy -c 'Print :UTExportedTypeDeclarations:1:UTTypeIdentifier' "$INFO_PLIST")"
 if [[ ! "$VERSION" =~ '^[0-9]+(\.[0-9]+)*$' || ! "$BUILD" =~ '^[0-9]+$' ]]; then
     print -u2 "Info.plist contains an invalid release version or build number."
     exit 1
 fi
+if [[ "$BUNDLE_IDENTIFIER" != "com.davidgrossman.Paster" ]]; then
+    print -u2 "The bundle identifier must remain com.davidgrossman.Paster for upgrade compatibility."
+    exit 1
+fi
+if [[ "$CLIP_DRAG_IDENTIFIER" != "com.davidgrossman.paster.clip-ids" || "$BOARD_DRAG_IDENTIFIER" != "com.davidgrossman.paster.board-id" ]]; then
+    print -u2 "The legacy drag identifiers must remain unchanged for upgrade compatibility."
+    exit 1
+fi
 
-ASSET_NAME="Paster-${VERSION}-macOS-arm64.zip"
+ASSET_NAME="Pastrix-${VERSION}-macOS-arm64.zip"
 CHECKSUM_NAME="${ASSET_NAME}.sha256"
-COMPATIBILITY_NAME="Paster-Mac.zip"
-STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/paster-release.XXXXXX")"
+COMPATIBILITY_NAME="Pastrix-Mac.zip"
+STAGING_DIR="$(mktemp -d "${TMPDIR:-/tmp}/pastrix-release.XXXXXX")"
 STAGED_APP="$STAGING_DIR/$APP_NAME"
 STAGED_ZIP="$STAGING_DIR/$ASSET_NAME"
 trap 'rm -rf "$STAGING_DIR"' EXIT
@@ -37,14 +48,14 @@ swift build -c release \
 
 BIN_DIR="$(swift build -c release --show-bin-path)"
 mkdir -p "$STAGED_APP/Contents/MacOS" "$STAGED_APP/Contents/Resources"
-cp "$BIN_DIR/Paster" "$STAGED_APP/Contents/MacOS/Paster"
+cp "$BIN_DIR/Pastrix" "$STAGED_APP/Contents/MacOS/Pastrix"
 cp "$INFO_PLIST" "$STAGED_APP/Contents/Info.plist"
-if [[ -f "$PROJECT_ROOT/resources/Paster.icns" ]]; then
-    cp "$PROJECT_ROOT/resources/Paster.icns" "$STAGED_APP/Contents/Resources/"
+if [[ -f "$PROJECT_ROOT/resources/Pastrix.icns" ]]; then
+    cp "$PROJECT_ROOT/resources/Pastrix.icns" "$STAGED_APP/Contents/Resources/"
 fi
 
-/usr/bin/strip -S -x "$STAGED_APP/Contents/MacOS/Paster"
-if /usr/bin/strings "$STAGED_APP/Contents/MacOS/Paster" | /usr/bin/grep -F "$PROJECT_ROOT" >/dev/null; then
+/usr/bin/strip -S -x "$STAGED_APP/Contents/MacOS/Pastrix"
+if /usr/bin/strings "$STAGED_APP/Contents/MacOS/Pastrix" | /usr/bin/grep -F "$PROJECT_ROOT" >/dev/null; then
     print -u2 "Release binary contains the local project path; refusing to package it."
     exit 1
 fi

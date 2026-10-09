@@ -1,5 +1,5 @@
 import XCTest
-@testable import Paster
+@testable import Pastrix
 
 final class ItemOrderingTests: XCTestCase {
     func testDragCanReachBothEndsAndAdjacentRightTarget() {

@@ -32,7 +32,7 @@ final class SharingService: NSObject {
         }
     }
 
-    private static let exportRootName = "Paster-Sharing"
+    private static let exportRootName = "Pastrix-Sharing"
     private static let staleExportAge: TimeInterval = 24 * 60 * 60
 
     private var picker: NSSharingServicePicker?

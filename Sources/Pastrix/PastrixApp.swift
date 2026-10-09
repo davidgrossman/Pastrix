@@ -3,7 +3,7 @@ import SwiftUI
 import Carbon
 
 @main
-struct PasterMain {
+struct PastrixMain {
     @MainActor static func main() {
         let app = NSApplication.shared
         let delegate = AppDelegate()
@@ -41,7 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             model.onResize = { [weak self] in self?.resize() }
             model.onQueueSessionChanged = { [weak self] in self?.updateQueueSession() }
             let panel = ShelfPanel(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 380), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-            panel.title = demo ? "Paster — Demo" : "Paster"
+            panel.title = demo ? "Pastrix — Demo" : "Pastrix"
             panel.level = .floating
             panel.isOpaque = false; panel.backgroundColor = .clear
             panel.hasShadow = true; panel.hidesOnDeactivate = false
@@ -51,9 +51,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             panel.contentView = NSHostingView(rootView: ShelfView(model: model))
             self.panel = panel
             installMenus(); registerShortcut(); installKeyboard()
-            if demo || !UserDefaults.standard.bool(forKey: "hasLaunched") {
+            if demo || !UserDefaults.standard.bool(forKey: LegacyCompatibility.hasLaunchedKey) {
                 show()
-                if !demo { UserDefaults.standard.set(true, forKey: "hasLaunched") }
+                if !demo { UserDefaults.standard.set(true, forKey: LegacyCompatibility.hasLaunchedKey) }
             }
             workspaceObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main) { [weak self] _ in
                 MainActor.assumeIsolated {
@@ -63,7 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
                 }
             }
         } catch {
-            let alert = NSAlert(); alert.messageText = "Paster couldn’t open its history"
+            let alert = NSAlert(); alert.messageText = "Pastrix couldn’t open its history"
             alert.informativeText = "Your saved data has been left intact.\n\n\(error.localizedDescription)"
             alert.addButton(withTitle: "Quit"); alert.runModal(); NSApp.terminate(nil)
         }
@@ -71,11 +71,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
     private func installMenus() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = MenuBarIcon.make()
-        item.button?.toolTip = "Paster · Click for menu · ⌘⇧V for history"
+        item.button?.toolTip = "Pastrix · Click for menu · ⌘⇧V for history"
         statusItem = item
         let quickMenu = NSMenu(); quickMenu.delegate = self; item.menu = quickMenu
         let main = NSMenu()
-        let appItem = NSMenuItem(); let appMenu = NSMenu(title: "Paster")
+        let appItem = NSMenuItem(); let appMenu = NSMenu(title: "Pastrix")
         let quickItem = NSMenuItem(title: "Quick Menu", action: nil, keyEquivalent: "")
         let accessibleMenu = NSMenu(); accessibleMenu.delegate = self; quickItem.submenu = accessibleMenu
         appMenu.addItem(quickItem)
@@ -84,7 +84,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         appMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "")
         appMenu.addItem(withTitle: "Send Feedback…", action: #selector(feedback), keyEquivalent: "")
         appMenu.addItem(withTitle: "Settings…", action: #selector(settings), keyEquivalent: ",")
-        appMenu.addItem(.separator()); appMenu.addItem(withTitle: "Quit Paster", action: #selector(quit), keyEquivalent: "q")
+        appMenu.addItem(.separator()); appMenu.addItem(withTitle: "Quit Pastrix", action: #selector(quit), keyEquivalent: "q")
         appItem.submenu = appMenu; main.addItem(appItem)
         let editItem = NSMenuItem(); let edit = NSMenu(title: "Edit")
         edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
@@ -139,7 +139,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         menu.addItem(withTitle: "Check for Updates…", action: #selector(checkUpdates), keyEquivalent: "")
         menu.addItem(withTitle: "Send Feedback…", action: #selector(feedback), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(settings), keyEquivalent: ",")
-        menu.addItem(withTitle: "Quit Paster", action: #selector(quit), keyEquivalent: "q")
+        menu.addItem(withTitle: "Quit Pastrix", action: #selector(quit), keyEquivalent: "q")
         for item in menu.items { item.target = self }
         return menu
     }
@@ -170,7 +170,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
         model.queueUsesCommandV = !model.isDemo && queueMonitor.start()
         if queuePanel == nil {
             let panel = NSPanel(contentRect: .init(x: 0, y: 0, width: 342, height: 180), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
-            panel.title = "Paster Clip Queue"; panel.level = .floating
+            panel.title = "Pastrix Clip Queue"; panel.level = .floating
             panel.isOpaque = false; panel.backgroundColor = .clear; panel.hasShadow = true
             panel.hidesOnDeactivate = false; panel.isReleasedWhenClosed = false
             panel.isMovableByWindowBackground = true
@@ -221,7 +221,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             return noErr
         }, 1, &spec, pointer, &hotKeyHandler)
         let result = RegisterEventHotKey(UInt32(kVK_ANSI_V), UInt32(cmdKey | shiftKey), EventHotKeyID(signature: 0x50535452, id: 1), GetApplicationEventTarget(), 0, &hotKey)
-        if result != noErr { model?.notify("⌘⇧V is in use by another app. Open Paster from the menu bar.") }
+        if result != noErr { model?.notify("⌘⇧V is in use by another app. Open Pastrix from the menu bar.") }
         let queueResult = RegisterEventHotKey(UInt32(kVK_ANSI_V), UInt32(cmdKey | controlKey), EventHotKeyID(signature: 0x50535452, id: 2), GetApplicationEventTarget(), 0, &queueHotKey)
         if queueResult != noErr { model?.notify("⌃⌘V is in use. Use Paste Next in the queue bar.") }
     }
@@ -252,7 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSMe
             model.pasteNextInQueue(plain: event.modifierFlags.contains(.shift)); return nil
         }
         if command && event.charactersIgnoringModifiers == "f" {
-            NotificationCenter.default.post(name: .init("PasterFocusSearch"), object: nil); return nil
+            NotificationCenter.default.post(name: .init("PastrixFocusSearch"), object: nil); return nil
         }
         if command, let number = Int(event.charactersIgnoringModifiers ?? ""), (1...9).contains(number), model.clips.count >= number {
             model.select(model.clips[number - 1]); model.pasteSelected(plain: event.modifierFlags.contains(.shift)); return nil

@@ -1,11 +1,11 @@
-# Contributing to Paster
+# Contributing to Pastrix
 
-Paster is a small native Mac clipboard manager. Thoughtful bug reports, accessibility improvements, tests, documentation, and focused Swift changes are welcome. You do not need to be a clipboard expert to help.
+Pastrix is a small native Mac clipboard manager. Thoughtful bug reports, accessibility improvements, tests, documentation, and focused Swift changes are welcome. You do not need to be a clipboard expert to help.
 
 ## Start here
 
 1. Read the README, [architecture](docs/ARCHITECTURE.md), and [roadmap](ROADMAP.md).
-2. For a bug, open an issue with macOS version, Paster version, and steps using **made-up sample content**.
+2. For a bug, open an issue with macOS version, Pastrix version, and steps using **made-up sample content**.
 3. For a substantial feature, propose it in an issue first so we can agree on scope.
 4. Fork the repo, make a focused branch, and open a pull request describing the problem, result, and validation.
 
@@ -14,11 +14,11 @@ Paster is a small native Mac clipboard manager. Thoughtful bug reports, accessib
 Use a Mac with Xcode/Command Line Tools and Swift 6 or later:
 
 ```sh
-git clone https://github.com/davidgrossman/Paster.git
-cd Paster
+git clone https://github.com/davidgrossman/Pastrix.git
+cd Pastrix
 swift test
 ./scripts/build-app.sh
-./dist/Paster.app/Contents/MacOS/Paster --demo
+./dist/Pastrix.app/Contents/MacOS/Pastrix --demo
 ```
 
 Demo mode uses generated content, a temporary database, and a named test pasteboard. It does not monitor or write your system clipboard. Use it for development screenshots. A normal launch captures new clipboard content; it is not the default development test environment.

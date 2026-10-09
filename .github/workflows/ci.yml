@@ -17,4 +17,4 @@ jobs:
       - name: Build app bundle
         run: ./scripts/build-app.sh
       - name: Verify app signature
-        run: codesign --verify --deep --strict dist/Paster.app
+        run: codesign --verify --deep --strict dist/Pastrix.app

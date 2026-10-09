@@ -2,7 +2,7 @@ import CSQLite
 import CryptoKit
 import Foundation
 import XCTest
-@testable import Paster
+@testable import Pastrix
 
 final class HistoryDatabaseTests: XCTestCase {
     func testDuplicateFingerprintPreservesIdentityAndPinWhileRefreshingClip() async throws {
@@ -536,7 +536,7 @@ final class HistoryDatabaseTests: XCTestCase {
 
     private func makeTemporaryDirectory() throws -> URL {
         let url = FileManager.default.temporaryDirectory
-            .appendingPathComponent("PasterTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("PastrixTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: url, withIntermediateDirectories: false)
         return url
     }

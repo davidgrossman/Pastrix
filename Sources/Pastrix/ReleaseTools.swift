@@ -5,13 +5,13 @@ import UniformTypeIdentifiers
 @MainActor
 final class ReleaseTools: NSObject {
     private static let latestReleaseAPIURL = URL(
-        string: "https://api.github.com/repos/davidgrossman/Paster/releases/latest"
+        string: "https://api.github.com/repos/davidgrossman/Pastrix/releases/latest"
     )!
     private static let releasesURL = URL(
-        string: "https://github.com/davidgrossman/Paster/releases"
+        string: "https://github.com/davidgrossman/Pastrix/releases"
     )!
     private static let newIssueURL = URL(
-        string: "https://github.com/davidgrossman/Paster/issues/new/choose"
+        string: "https://github.com/davidgrossman/Pastrix/issues/new/choose"
     )!
 
     private var feedbackWindow: NSWindow?
@@ -24,7 +24,7 @@ final class ReleaseTools: NSObject {
             forInfoDictionaryKey: "CFBundleShortVersionString"
         ) as? String, !currentVersion.isEmpty else {
             showUpdateUnavailable(
-                "Paster can’t determine the version of the app that is currently running."
+                "Pastrix can’t determine the version of the app that is currently running."
             )
             return
         }
@@ -49,7 +49,7 @@ final class ReleaseTools: NSObject {
         let panel = NSSavePanel()
         panel.allowedContentTypes = [.plainText]
         panel.canCreateDirectories = true
-        panel.nameFieldStringValue = "Paster-feedback.txt"
+        panel.nameFieldStringValue = "Pastrix-feedback.txt"
         panel.prompt = "Save Feedback"
 
         guard panel.runModal() == .OK, let destination = panel.url else { return }
@@ -59,7 +59,7 @@ final class ReleaseTools: NSObject {
         ) as? String ?? "Unknown"
         let macOSVersion = ProcessInfo.processInfo.operatingSystemVersionString
         let draft = """
-        Paster Feedback Draft
+        Pastrix Feedback Draft
 
         App version: \(appVersion)
         macOS: \(macOSVersion)
@@ -72,7 +72,7 @@ final class ReleaseTools: NSObject {
             try draft.write(to: destination, atomically: true, encoding: .utf8)
         } catch {
             let alert = NSAlert(error: error)
-            alert.messageText = "Paster couldn’t save the feedback draft"
+            alert.messageText = "Pastrix couldn’t save the feedback draft"
             alert.runModal()
         }
     }
@@ -118,7 +118,7 @@ final class ReleaseTools: NSObject {
         var request = URLRequest(url: Self.latestReleaseAPIURL)
         request.timeoutInterval = 10
         request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
-        request.setValue("Paster/\(currentVersion)", forHTTPHeaderField: "User-Agent")
+        request.setValue("Pastrix/\(currentVersion)", forHTTPHeaderField: "User-Agent")
 
         let configuration = URLSessionConfiguration.ephemeral
         configuration.timeoutIntervalForRequest = 10
@@ -140,7 +140,7 @@ final class ReleaseTools: NSObject {
             guard httpResponse.statusCode == 200 else {
                 if httpResponse.statusCode == 404 {
                     showUpdateUnavailable(
-                        "GitHub does not currently have a public Paster release to compare."
+                        "GitHub does not currently have a public Pastrix release to compare."
                     )
                 } else {
                     showUpdateUnavailable(
@@ -155,14 +155,14 @@ final class ReleaseTools: NSObject {
                 latestVersion = try Self.decodeLatestReleaseVersion(from: data)
             } catch {
                 showUpdateUnavailable(
-                    "GitHub returned release information that Paster couldn’t read."
+                    "GitHub returned release information that Pastrix couldn’t read."
                 )
                 return
             }
 
             guard let comparison = Self.compareNumericVersions(latestVersion, currentVersion) else {
                 showUpdateUnavailable(
-                    "Paster couldn’t compare release \(latestVersion) with installed version \(currentVersion)."
+                    "Pastrix couldn’t compare release \(latestVersion) with installed version \(currentVersion)."
                 )
                 return
             }
@@ -178,7 +178,7 @@ final class ReleaseTools: NSObject {
             )
         } catch {
             showUpdateUnavailable(
-                "Paster couldn’t reach GitHub. Check your connection and try again."
+                "Pastrix couldn’t reach GitHub. Check your connection and try again."
             )
         }
     }
@@ -190,15 +190,15 @@ final class ReleaseTools: NSObject {
     ) {
         let alert = NSAlert()
         if comparison == .orderedDescending {
-            alert.messageText = "Paster \(latestVersion) is available"
-            alert.informativeText = "You’re running Paster \(currentVersion). Paster will not download or install the update automatically."
+            alert.messageText = "Pastrix \(latestVersion) is available"
+            alert.informativeText = "You’re running Pastrix \(currentVersion). Pastrix will not download or install the update automatically."
             alert.addButton(withTitle: "Open Releases Page")
             alert.addButton(withTitle: "Cancel")
             if alert.runModal() == .alertFirstButtonReturn {
                 NSWorkspace.shared.open(Self.releasesURL)
             }
         } else {
-            alert.messageText = "Paster is up to date"
+            alert.messageText = "Pastrix is up to date"
             alert.informativeText = "Installed version: \(currentVersion)\nLatest public release: \(latestVersion)"
             alert.addButton(withTitle: "OK")
             alert.runModal()
@@ -232,7 +232,7 @@ final class ReleaseTools: NSObject {
             backing: .buffered,
             defer: false
         )
-        window.title = "Paster Feedback"
+        window.title = "Pastrix Feedback"
         window.isReleasedWhenClosed = false
         window.minSize = NSSize(width: 420, height: 300)
 
@@ -240,7 +240,7 @@ final class ReleaseTools: NSObject {
         container.translatesAutoresizingMaskIntoConstraints = false
 
         let label = NSTextField(
-            labelWithString: "Write a local draft, then save it or open GitHub to submit an issue yourself. Paster never copies or sends this text automatically."
+            labelWithString: "Write a local draft, then save it or open GitHub to submit an issue yourself. Pastrix never copies or sends this text automatically."
         )
         label.lineBreakMode = .byWordWrapping
         label.maximumNumberOfLines = 0

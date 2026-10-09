@@ -3,21 +3,21 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDisplayName</key>
-	<string>Paster</string>
+	<string>Pastrix</string>
 	<key>CFBundleExecutable</key>
-	<string>Paster</string>
+	<string>Pastrix</string>
 	<key>CFBundleIconFile</key>
-	<string>Paster</string>
+	<string>Pastrix</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.davidgrossman.Paster</string>
 	<key>CFBundleName</key>
-	<string>Paster</string>
+	<string>Pastrix</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.2.1</string>
+	<string>1.2.2</string>
 	<key>CFBundleVersion</key>
-	<string>4</string>
+	<string>5</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>14.0</string>
 	<key>LSUIElement</key>
@@ -36,7 +36,7 @@
 				<string>public.data</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>Paster Clips</string>
+			<string>Pastrix Clips</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.davidgrossman.paster.clip-ids</string>
 		</dict>
@@ -46,7 +46,7 @@
 				<string>public.data</string>
 			</array>
 			<key>UTTypeDescription</key>
-			<string>Paster Pinboard</string>
+			<string>Pastrix Pinboard</string>
 			<key>UTTypeIdentifier</key>
 			<string>com.davidgrossman.paster.board-id</string>
 		</dict>

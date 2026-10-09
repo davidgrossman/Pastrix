@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import Paster
+@testable import Pastrix
 
 @MainActor
 final class SharingServiceTests: XCTestCase {
@@ -134,7 +134,7 @@ final class SharingServiceTests: XCTestCase {
 
     private func withTemporaryDirectory(_ body: (URL) throws -> Void) throws {
         let directory = FileManager.default.temporaryDirectory
-            .appendingPathComponent("Paster-SharingTests-\(UUID().uuidString)", isDirectory: true)
+            .appendingPathComponent("Pastrix-SharingTests-\(UUID().uuidString)", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         try body(directory)

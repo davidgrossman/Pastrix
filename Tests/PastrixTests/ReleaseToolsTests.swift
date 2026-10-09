@@ -1,6 +1,6 @@
 import Foundation
 import XCTest
-@testable import Paster
+@testable import Pastrix
 
 final class ReleaseToolsTests: XCTestCase {
     func testNumericComparisonDoesNotUseLexicographicOrdering() {
@@ -32,17 +32,17 @@ final class ReleaseToolsTests: XCTestCase {
     }
 
     func testDecodesNumericVersionFromGitHubReleaseResponse() throws {
-        let response = Data(#"{"tag_name":"v1.2.1","name":"Paster 1.2.1"}"#.utf8)
+        let response = Data(#"{"tag_name":"v1.2.2","name":"Pastrix 1.2.2"}"#.utf8)
 
         XCTAssertEqual(
             try ReleaseTools.decodeLatestReleaseVersion(from: response),
-            "1.2.1"
+            "1.2.2"
         )
     }
 
     func testRejectsMissingOrNonnumericReleaseTags() {
-        let missingTag = Data(#"{"name":"Paster 1.2.1"}"#.utf8)
-        let prereleaseTag = Data(#"{"tag_name":"v1.2.1-beta"}"#.utf8)
+        let missingTag = Data(#"{"name":"Pastrix 1.2.2"}"#.utf8)
+        let prereleaseTag = Data(#"{"tag_name":"v1.2.2-beta"}"#.utf8)
 
         XCTAssertThrowsError(
             try ReleaseTools.decodeLatestReleaseVersion(from: missingTag)

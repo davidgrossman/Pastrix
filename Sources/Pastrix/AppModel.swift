@@ -47,10 +47,10 @@ final class AppModel: ObservableObject {
         isDemo = demo
         settings = demo ? AppSettings() : AppSettings.load()
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        dataDirectory = demo ? FileManager.default.temporaryDirectory.appendingPathComponent("Paster-Demo-\(ProcessInfo.processInfo.processIdentifier)") : base.appendingPathComponent("Paster")
+        dataDirectory = demo ? FileManager.default.temporaryDirectory.appendingPathComponent("Pastrix-Demo-\(ProcessInfo.processInfo.processIdentifier)") : base.appendingPathComponent(LegacyCompatibility.applicationSupportDirectoryName)
         try FileManager.default.createDirectory(at: dataDirectory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         database = try HistoryDatabase(url: dataDirectory.appendingPathComponent("history.sqlite"))
-        clipboard = ClipboardService(pasteboard: demo ? NSPasteboard(name: .init("Paster-Demo")) : .general)
+        clipboard = ClipboardService(pasteboard: demo ? NSPasteboard(name: .init("Pastrix-Demo")) : .general)
         clipboard.ignoredBundleIDs = Set(settings.ignoredBundleIDs.split(whereSeparator: \.isNewline).map { $0.trimmingCharacters(in: .whitespaces) })
         clipboard.onCapture = { [weak self] clip in self?.capture(clip) }
         clipboard.onSkip = { [weak self] message in self?.notify(message) }
@@ -285,7 +285,7 @@ final class AppModel: ObservableObject {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
         let item = NSPasteboardItem(); item.setString(text, forType: .string)
         do {
-            guard var clip = try ClipboardService.capture(items: [item], sourceApp: "Paster", bundleID: Bundle.main.bundleIdentifier ?? "com.davidgrossman.Paster") else { return }
+            guard var clip = try ClipboardService.capture(items: [item], sourceApp: "Pastrix", bundleID: Bundle.main.bundleIdentifier ?? LegacyCompatibility.bundleIdentifier) else { return }
             let label = title.trimmingCharacters(in: .whitespacesAndNewlines)
             clip.customTitle = label.isEmpty ? nil : String(label.prefix(160))
             clip.boardID = boardID
@@ -338,7 +338,7 @@ final class AppModel: ObservableObject {
     func report(_ error: Error) { errorMessage = error.localizedDescription }
     struct Archive: Codable, Sendable { var version = 1; var boards: [Pinboard]; var clips: [Clip] }
     func exportHistory() {
-        let panel = NSSavePanel(); panel.allowedContentTypes = [.json]; panel.nameFieldStringValue = "Paster-backup.json"
+        let panel = NSSavePanel(); panel.allowedContentTypes = [.json]; panel.nameFieldStringValue = "Pastrix-backup.json"
         panel.message = "This backup contains your clipboard content as readable data. Store it somewhere private."
         guard panel.runModal() == .OK, let url = panel.url else { return }
         Task { do {

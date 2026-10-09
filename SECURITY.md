@@ -3,7 +3,7 @@
 Clipboard managers handle sensitive content. Please do not put secrets, real clipboard databases, personal screenshots, or proof-of-concept data containing credentials in a public issue.
 
 Use GitHub's **Security → Report a vulnerability** on this repository for private vulnerability reporting:
-https://github.com/davidgrossman/Paster/security/advisories/new
+https://github.com/davidgrossman/Pastrix/security/advisories/new
 
 Include affected versions, impact, and minimal reproduction steps using synthetic data. Ordinary non-sensitive bugs belong in Issues. This community project does not promise a response-time SLA.
 

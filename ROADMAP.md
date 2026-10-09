@@ -1,4 +1,4 @@
-# Help shape Paster
+# Help shape Pastrix
 
 This is an early public preview. Reliability and native Mac behavior come before adding more integrations. These are proposed work areas, not delivery promises.
 
@@ -15,4 +15,4 @@ This is an early public preview. Reliability and native Mac behavior come before
 
 Later ideas: on-device OCR, smart pinboards, optional AI transforms, and a permission-scoped MCP interface. None are implemented or promised for the current release. Any AI/MCP proposal must make data access explicit and preserve the app's local-history default.
 
-Start with a focused [issue](https://github.com/davidgrossman/Paster/issues/new/choose) or see [CONTRIBUTING.md](CONTRIBUTING.md).
+Start with a focused [issue](https://github.com/davidgrossman/Pastrix/issues/new/choose) or see [CONTRIBUTING.md](CONTRIBUTING.md).

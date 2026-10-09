@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import Paster
+@testable import Pastrix
 
 final class QueueSessionTests: XCTestCase {
     func testOnlyPlainCommandVIsInterceptedAndSyntheticPastePasses() {

@@ -17,7 +17,7 @@ enum HistoryDatabaseError: Error, LocalizedError {
         case let .sqlite(operation, code, message):
             "History database \(operation) failed (SQLite \(code)): \(message)"
         case let .unsupportedSchemaVersion(version):
-            "History database schema version \(version) is newer than this version of Paster supports."
+            "History database schema version \(version) is newer than this version of Pastrix supports."
         case let .malformedClip(id, reason):
             "Stored clip \(id) is malformed: \(reason)"
         case let .invalidBoard(id):
@@ -40,7 +40,7 @@ private final class SQLiteConnection: @unchecked Sendable {
     }
 }
 
-/// Serializes all access to Paster's on-disk history.
+/// Serializes all access to Pastrix's on-disk history.
 actor HistoryDatabase {
     private static let schemaVersion: Int32 = 2
     private static let maxUnpinnedPayloadBytes = 512 * 1024 * 1024

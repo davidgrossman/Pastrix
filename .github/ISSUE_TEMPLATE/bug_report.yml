@@ -9,8 +9,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: Paster and macOS versions
-      placeholder: "Paster 1.2.1; macOS version; Apple Silicon model"
+      label: Pastrix and macOS versions
+      placeholder: "Pastrix 1.2.2; macOS version; Apple Silicon model"
     validations:
       required: true
   - type: textarea

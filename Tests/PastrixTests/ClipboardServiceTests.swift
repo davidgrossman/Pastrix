@@ -1,6 +1,6 @@
 import AppKit
 import XCTest
-@testable import Paster
+@testable import Pastrix
 
 @MainActor
 final class ClipboardServiceTests: XCTestCase {
@@ -214,7 +214,7 @@ final class ClipboardServiceTests: XCTestCase {
     }
 
     private func withNamedPasteboard(_ body: (NSPasteboard) throws -> Void) throws {
-        let pasteboard = NSPasteboard(name: .init("PasterTests-\(UUID().uuidString)"))
+        let pasteboard = NSPasteboard(name: .init("PastrixTests-\(UUID().uuidString)"))
         pasteboard.clearContents()
         defer {
             pasteboard.clearContents()

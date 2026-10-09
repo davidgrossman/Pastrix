@@ -3,9 +3,9 @@ import ImageIO
 import SwiftUI
 import UniformTypeIdentifiers
 
-private enum PasterDragType {
-    static let clipIDs = UTType(exportedAs: "com.davidgrossman.paster.clip-ids", conformingTo: .data)
-    static let boardID = UTType(exportedAs: "com.davidgrossman.paster.board-id", conformingTo: .data)
+private enum PastrixDragType {
+    static let clipIDs = UTType(exportedAs: LegacyCompatibility.clipDragTypeIdentifier, conformingTo: .data)
+    static let boardID = UTType(exportedAs: LegacyCompatibility.boardDragTypeIdentifier, conformingTo: .data)
 }
 
 private struct NewBoardContext: Identifiable {
@@ -105,12 +105,12 @@ struct ShelfView: View {
             ClipDetailSheet(clip: clip, model: model)
         }
         .sheet(isPresented: $model.showingSettings) {
-            PasterSettingsView(model: model)
+            PastrixSettingsView(model: model)
         }
-        .onReceive(NotificationCenter.default.publisher(for: .init("PasterFocusSearch"))) { _ in
+        .onReceive(NotificationCenter.default.publisher(for: .init("PastrixFocusSearch"))) { _ in
             searchFocused = true
         }
-        .alert("Paster couldn’t complete that action", isPresented: errorIsPresented) {
+        .alert("Pastrix couldn’t complete that action", isPresented: errorIsPresented) {
             Button("OK") { model.errorMessage = nil }
         } message: {
             Text(model.errorMessage ?? "An unknown error occurred.")
@@ -262,7 +262,7 @@ private struct ShelfHeader: View {
                     ) {
                         model.selectedBoardID = nil
                     }
-                    .onDrop(of: [PasterDragType.clipIDs.identifier], isTargeted: nil) { providers in
+                    .onDrop(of: [PastrixDragType.clipIDs.identifier], isTargeted: nil) { providers in
                         loadClipIDs(from: providers) { ids in model.assign(ids: ids, to: nil) }
                     }
 
@@ -270,17 +270,17 @@ private struct ShelfHeader: View {
                         BoardTab(
                             title: board.name,
                             symbol: board.icon,
-                            color: Color(pasterHex: board.color),
+                            color: Color(pastrixHex: board.color),
                             isSelected: model.selectedBoardID == board.id
                         ) {
                             model.selectedBoardID = board.id
                         }
                         .onDrag { board.dragItemProvider }
                         .onDrop(
-                            of: [PasterDragType.clipIDs.identifier, PasterDragType.boardID.identifier],
+                            of: [PastrixDragType.clipIDs.identifier, PastrixDragType.boardID.identifier],
                             isTargeted: Binding(get: { targetedBoardID == board.id }, set: { targetedBoardID = $0 ? board.id : nil })
                         ) { providers in
-                            if providers.contains(where: { $0.hasItemConformingToTypeIdentifier(PasterDragType.clipIDs.identifier) }) {
+                            if providers.contains(where: { $0.hasItemConformingToTypeIdentifier(PastrixDragType.clipIDs.identifier) }) {
                                 return loadClipIDs(from: providers) { ids in model.assign(ids: ids, to: board.id) }
                             }
                             return loadBoardID(from: providers) { id in
@@ -288,7 +288,7 @@ private struct ShelfHeader: View {
                                 model.reorderBoard(draggedID: id, to: board.id)
                             }
                         }
-                        .background(Color(pasterHex: board.color).opacity(targetedBoardID == board.id ? 0.2 : 0), in: Capsule())
+                        .background(Color(pastrixHex: board.color).opacity(targetedBoardID == board.id ? 0.2 : 0), in: Capsule())
                         .contextMenu {
                             Button("Edit Pinboard…", systemImage: "slider.horizontal.3") {
                                 onEditBoard(board)
@@ -525,7 +525,7 @@ private struct ClipCard: View {
             if !isSelected { onDragSelect() }
             return clip.dragItemProvider(ids: draggedIDs)
         }
-        .onDrop(of: [PasterDragType.clipIDs.identifier], isTargeted: $isDropTarget) { providers in
+        .onDrop(of: [PastrixDragType.clipIDs.identifier], isTargeted: $isDropTarget) { providers in
             loadClipIDs(from: providers) { ids in
                 guard canReorder, !ids.contains(clip.id) else { return }
                 onReorder(ids)
@@ -595,7 +595,7 @@ private struct ClipCard: View {
                 Text(customTitle).lineLimit(1)
             } else if let board {
                 Circle()
-                    .fill(Color(pasterHex: board.color))
+                    .fill(Color(pastrixHex: board.color))
                     .frame(width: 7, height: 7)
                 Text(board.name)
                     .lineLimit(1)
@@ -684,7 +684,7 @@ private struct SourceAppIcon: View {
 private struct ColorPreview: View {
     let clip: Clip
 
-    private var color: Color { Color(pasterHex: clip.text) }
+    private var color: Color { Color(pastrixHex: clip.text) }
 
     var body: some View {
         VStack(spacing: 10) {
@@ -854,8 +854,8 @@ private struct ShelfFooter: View {
                     .frame(width: 26, height: 26)
             }
             .buttonStyle(.borderless)
-            .help("Paster settings")
-            .accessibilityLabel("Paster settings")
+            .help("Pastrix settings")
+            .accessibilityLabel("Pastrix settings")
         }
         .font(.system(size: 11.5, weight: .medium))
         .padding(.horizontal, 18)
@@ -945,9 +945,9 @@ private struct PinboardEditorSheet: View {
                         } label: {
                             Image(systemName: symbol)
                                 .font(.system(size: 13, weight: .semibold))
-                                .foregroundStyle(icon == symbol ? Color.white : Color(pasterHex: color))
+                                .foregroundStyle(icon == symbol ? Color.white : Color(pastrixHex: color))
                                 .frame(width: 30, height: 30)
-                                .background(icon == symbol ? Color(pasterHex: color) : Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                                .background(icon == symbol ? Color(pastrixHex: color) : Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                         }
                         .buttonStyle(.plain)
                         .accessibilityAddTraits(icon == symbol ? .isSelected : [])
@@ -966,7 +966,7 @@ private struct PinboardEditorSheet: View {
                             color = swatch
                         } label: {
                             Circle()
-                                .fill(Color(pasterHex: swatch).gradient)
+                                .fill(Color(pastrixHex: swatch).gradient)
                                 .frame(width: 27, height: 27)
                                 .overlay {
                                     Circle().strokeBorder(.white, lineWidth: color == swatch ? 3 : 0)
@@ -1111,7 +1111,7 @@ private struct EditClipSheet: View {
                 .accessibilityLabel("Clip text")
 
             HStack {
-                Text("Changes are saved only in Paster’s local history.")
+                Text("Changes are saved only in Pastrix’s local history.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
@@ -1163,7 +1163,7 @@ private struct ClipDetailSheet: View {
                             .padding(24)
                     }
                 } else if clip.kind == .color {
-                    Color(pasterHex: clip.text)
+                    Color(pastrixHex: clip.text)
                         .overlay {
                             Text(clip.text.uppercased())
                                 .font(.title2.weight(.semibold).monospaced())
@@ -1207,14 +1207,14 @@ private struct ClipDetailSheet: View {
     }
 }
 
-private struct PasterSettingsView: View {
+private struct PastrixSettingsView: View {
     @ObservedObject var model: AppModel
 
     var body: some View {
         VStack(spacing: 0) {
             HStack {
                 VStack(alignment: .leading, spacing: 3) {
-                    Text("Paster Settings").font(.title2.weight(.semibold))
+                    Text("Pastrix Settings").font(.title2.weight(.semibold))
                     Text("Clipboard history stays on this Mac.")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
@@ -1250,7 +1250,7 @@ private struct PasterSettingsView: View {
                     }
 
                     SettingsSection(title: "Mac", symbol: "macwindow") {
-                        Toggle("Open Paster at login", isOn: $model.settings.launchAtLogin)
+                        Toggle("Open Pastrix at login", isOn: $model.settings.launchAtLogin)
 
                         VStack(alignment: .leading, spacing: 7) {
                             HStack {
@@ -1262,7 +1262,7 @@ private struct PasterSettingsView: View {
                                 )
                                 .foregroundStyle(model.accessibilityGranted ? .green : .secondary)
                             }
-                            Text("Accessibility permission lets Paster paste into the app you were using. Copying works without it.")
+                            Text("Accessibility permission lets Pastrix paste into the app you were using. Copying works without it.")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                             if !model.accessibilityGranted {
@@ -1274,7 +1274,7 @@ private struct PasterSettingsView: View {
                     }
 
                     SettingsSection(title: "Ignored Apps", symbol: "app.badge") {
-                        Text("Enter one bundle identifier per line. Paster will not save clips copied from these apps.")
+                        Text("Enter one bundle identifier per line. Pastrix will not save clips copied from these apps.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         TextEditor(text: $model.settings.ignoredBundleIDs)
@@ -1287,7 +1287,7 @@ private struct PasterSettingsView: View {
                     }
 
                     SettingsSection(title: "Data", symbol: "externaldrive") {
-                        Text("History and settings are stored locally. Paster does not send clipboard contents to a server.")
+                        Text("History and settings are stored locally. Pastrix does not send clipboard contents to a server.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         HStack {
@@ -1413,7 +1413,7 @@ private extension Clip {
         let provider = externalDragItemProvider
         if let data = try? JSONEncoder().encode(ids) {
             provider.registerDataRepresentation(
-                forTypeIdentifier: PasterDragType.clipIDs.identifier,
+                forTypeIdentifier: PastrixDragType.clipIDs.identifier,
                 visibility: .ownProcess
             ) { completion in
                 completion(data, nil)
@@ -1490,7 +1490,7 @@ private extension Pinboard {
         let provider = NSItemProvider()
         let data = Data(id.utf8)
         provider.registerDataRepresentation(
-            forTypeIdentifier: PasterDragType.boardID.identifier,
+            forTypeIdentifier: PastrixDragType.boardID.identifier,
             visibility: .ownProcess
         ) { completion in
             completion(data, nil)
@@ -1504,10 +1504,10 @@ private extension Pinboard {
 @discardableResult
 private func loadClipIDs(from providers: [NSItemProvider], action: @escaping @MainActor ([String]) -> Void) -> Bool {
     guard let provider = providers.first(where: {
-        $0.hasItemConformingToTypeIdentifier(PasterDragType.clipIDs.identifier)
+        $0.hasItemConformingToTypeIdentifier(PastrixDragType.clipIDs.identifier)
     }) else { return false }
 
-    provider.loadDataRepresentation(forTypeIdentifier: PasterDragType.clipIDs.identifier) { data, _ in
+    provider.loadDataRepresentation(forTypeIdentifier: PastrixDragType.clipIDs.identifier) { data, _ in
         guard let data, let ids = try? JSONDecoder().decode([String].self, from: data), !ids.isEmpty else { return }
         Task { @MainActor in action(ids) }
     }
@@ -1518,10 +1518,10 @@ private func loadClipIDs(from providers: [NSItemProvider], action: @escaping @Ma
 @discardableResult
 private func loadBoardID(from providers: [NSItemProvider], action: @escaping @MainActor (String) -> Void) -> Bool {
     guard let provider = providers.first(where: {
-        $0.hasItemConformingToTypeIdentifier(PasterDragType.boardID.identifier)
+        $0.hasItemConformingToTypeIdentifier(PastrixDragType.boardID.identifier)
     }) else { return false }
 
-    provider.loadDataRepresentation(forTypeIdentifier: PasterDragType.boardID.identifier) { data, _ in
+    provider.loadDataRepresentation(forTypeIdentifier: PastrixDragType.boardID.identifier) { data, _ in
         guard let data, let id = String(data: data, encoding: .utf8), !id.isEmpty else { return }
         Task { @MainActor in action(id) }
     }
@@ -1561,7 +1561,7 @@ private extension ClipKind {
 }
 
 private extension Color {
-    init(pasterHex value: String) {
+    init(pastrixHex value: String) {
         switch value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "red": self = .red; return
         case "orange": self = .orange; return

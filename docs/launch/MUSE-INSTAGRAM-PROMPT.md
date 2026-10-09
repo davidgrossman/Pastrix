@@ -1,49 +1,50 @@
-# Muse brief: launch Paster on Instagram
+# Muse brief: prepare a Pastrix Instagram launch carousel
 
-Create and publish an Instagram launch post for **Paster**, a small, native Mac clipboard manager. The goal is to attract thoughtful early users and Swift/macOS contributors, not to imply this is an established commercial product. Use the verified public project as your source of truth.
+Create a finished Instagram carousel, caption, and per-slide alt text for **Pastrix**, a small native Mac clipboard manager. The goal is to attract thoughtful early users and Swift/macOS contributors without implying that this is an established commercial product. Prepare review-ready assets only. **Do not sign in, publish, schedule, update a profile or bio, buy promotion, message anyone, or take any other action on Instagram.**
 
-## Official destinations
+## Verified sources
 
-- Website: https://davidgrossman.github.io/Paster/
-- Repository: https://github.com/davidgrossman/Paster
-- Mac download and release notes: https://github.com/davidgrossman/Paster/releases/latest
-- Contributor guide: https://github.com/davidgrossman/Paster/blob/main/CONTRIBUTING.md
-- Roadmap: https://github.com/davidgrossman/Paster/blob/main/ROADMAP.md
+- Website: https://davidgrossman.github.io/Pastrix/
+- Repository: https://github.com/davidgrossman/Pastrix
+- Mac download and release notes: https://github.com/davidgrossman/Pastrix/releases/latest
+- Contributor guide: https://github.com/davidgrossman/Pastrix/blob/main/CONTRIBUTING.md
+- Roadmap: https://github.com/davidgrossman/Pastrix/blob/main/ROADMAP.md
+- Brand icon: `docs/assets/pastrix-icon.png`, the supplied purple clipboard P icon
 
-Before creating the post, open the website and latest release. Confirm the current version, supported Macs, download availability, license and installation caveats. If the facts have changed, update the post rather than repeat stale claims. If a link is broken or the public release is unavailable, stop publication and report the blocker.
+Use the public website, repository, and 1.2.2 release notes as the source of truth. Pastrix 1.2.2 is a rebrand release; do not present the new name or icon as a new clipboard feature. Earlier versions were named Paster.
 
-## Account and publishing scope
+## Product facts
 
-Use the Instagram account explicitly selected by David for this launch. If several accounts are available or the intended account is unclear, ask which one before posting. This brief authorizes the launch post; it does not authorize changing the profile, buying promotion, messaging people, or posting to unrelated accounts. Follow your platform's confirmation requirements. Stop for authentication or any approval you cannot provide yourself.
+Pastrix is a native Apple Silicon clipboard manager for macOS 14 or later. It offers searchable local history, a visual shelf, colored pinboards, reusable snippets, clip renaming, native sharing, a five-item Quick Menu, and a session-only paste queue. History stays in a local SQLite database. There is no account, telemetry, advertising, or cloud history sync.
 
-## Deliverable: a five-slide carousel
+The downloadable preview is ad-hoc signed and **not** Developer ID signed or Apple-notarized. macOS may block its first launch. Direct paste and ordinary-⌘V queue delivery require Accessibility permission. The database is readable by the user's macOS account and is not separately encrypted by Pastrix. Update checks contact GitHub only when the user asks. The app has no Intel download, App Store release, iOS app, OCR, AI, MCP server, or cross-device sync.
 
-Create five coordinated 1080 × 1350 slides. Keep important text away from edges, use large readable type, and check a phone-size preview. Use the real Paster icon and the public site's warm cream, charcoal and lavender palette. Keep the design clean and native-Mac inspired. Use short headlines, generous spacing, consistent slide numbers, and clear screenshots rather than dense feature lists.
+## Deliverable
 
-Use public repository/site screenshots showing **synthetic demo content only**. Do not capture David's real clipboard, desktop, documents, other app windows, notifications, account details, or private chats. Do not use Paste or Clipbara logos, imply affiliation, or invent screenshots of features that do not exist.
+Create five coordinated 1080 × 1350 slides. Keep important text away from edges, use large readable type, and inspect the set at phone size. Use the purple clipboard P icon from `docs/assets/pastrix-icon.png` and a restrained palette drawn from the public site: cool off-white, charcoal, lavender, and saturated purple. Keep the design clean and native-Mac inspired. Use short headlines, generous spacing, consistent slide numbers, and clear screenshots rather than dense feature lists.
+
+Use public repository or website screenshots showing **synthetic demo content only**. Do not capture David's real clipboard, desktop, documents, other app windows, notifications, account details, or private chats. Do not use Paste or Clipbara logos, imply affiliation, or invent screenshots. If a requested screenshot is unavailable, make an honest text-led slide using an existing public screenshot.
 
 Suggested sequence:
 
-1. **“Your clipboard, with a memory.”** Hero screenshot, Paster name/icon, supporting line: “A native clipboard manager for Mac.” A small “Public preview” label should remain legible.
-2. **“Find the thing you copied.”** Show the actual card shelf. Mention searchable history for text, links, images and file references. Keep screenshot labels readable.
-3. **“Keep the useful stuff.”** Show real pinboard UI. Three short callouts: save to pinboards, rename clips, create reusable snippets.
-4. **“Copy a few. Paste in order.”** Show the real queue panel. Explain that a queue session collects copied items and supports pasting the next clip. Small honest note: direct paste requires macOS Accessibility permission. Do not show universal compatibility or instant flawless automation claims.
-5. **“Try it. Help make it better.”** State MIT-licensed, built with Swift/SwiftUI/AppKit/SQLite. CTA: “Download the Mac preview or contribute on GitHub.” Show the readable website URL and a real QR code pointing to it if you can test the code. Add “Apple Silicon · macOS 14+ target · See release notes.”
-
-If a feature screenshot is unavailable, use an honest text slide with an existing public screenshot; do not fabricate UI.
+1. **“Your clipboard, with a memory.”** Show the Pastrix name, purple clipboard P icon, and hero screenshot. Supporting line: “A native clipboard manager for Mac.” Keep a small “Public preview” label legible.
+2. **“Find the thing you copied.”** Show the real card shelf. Mention searchable history for text, links, images, and file references.
+3. **“Keep the useful stuff.”** Show the real pinboard UI. Use three short callouts: save to pinboards, rename clips, create reusable snippets.
+4. **“Copy a few. Paste in order.”** Show the real queue panel. Explain that a queue session collects copied items and supports Paste Next. Include a small honest note that direct paste requires macOS Accessibility permission.
+5. **“Try it. Help make it better.”** State “MIT-licensed · Apple Silicon · macOS 14+ target.” CTA: “Download the Mac preview or contribute on GitHub.” Show `davidgrossman.github.io/Pastrix/` and a tested QR code pointing to that exact URL.
 
 ## Suggested caption
 
-Your clipboard remembers one thing. Paster helps you find the things worth keeping.
+Your clipboard remembers one thing. Pastrix helps you find the things worth keeping.
 
-Paster is a native Mac clipboard manager with searchable history, colorful pinboards, reusable snippets, clip renaming, sharing, and a paste queue. Clipboard history stays on your Mac—no account or cloud history sync.
+Pastrix is a native Mac clipboard manager with searchable history, colorful pinboards, reusable snippets, clip renaming, sharing, and a paste queue. Clipboard history stays on your Mac—no account or cloud history sync.
 
-The first public preview is available for Apple Silicon. It is MIT-licensed, built with Swift, SwiftUI, AppKit and SQLite, and open to contributions.
+The 1.2.2 public preview is available for Apple Silicon. It is MIT-licensed and built with Swift, SwiftUI, AppKit, and SQLite.
 
-This is an early preview: the downloadable app is not Apple-notarized yet, and compatibility testing is still growing. Read the installation notes before trying it. Direct paste requires macOS Accessibility permission.
+This is an early preview: the downloadable app is ad-hoc signed and not Apple-notarized, and compatibility testing is still growing. Read the installation notes before trying it. Direct paste requires macOS Accessibility permission.
 
 Try it or explore the code:
-https://davidgrossman.github.io/Paster/
+https://davidgrossman.github.io/Pastrix/
 
 Swift developer, accessibility tester, or Mac workflow enthusiast? The contributor guide has useful places to start.
 
@@ -51,21 +52,23 @@ What would make a clipboard manager indispensable in your day?
 
 #macOS #MacApps #ClipboardManager #SwiftLang #SwiftUI #OpenSource #DeveloperTools #MacProductivity
 
-Adjust wording to verified release facts and the selected account's voice. Keep the important preview/notarization note. Use “link in bio” only if the correct URL is already present or David separately approves updating the bio. Instagram caption URLs are not normally clickable; don't imply otherwise. A Story link sticker can point to the website if David also approves a Story.
+Adjust the wording only to verified release facts and the intended account's voice. Instagram caption URLs are not normally clickable; do not imply otherwise. Do not say “link in bio” unless a later publishing brief confirms that the correct URL is already there.
 
 ## Alt text
 
-Write specific alt text for each finished slide: describe the headline, actual screenshot and key information. For example, “Paster's Mac clipboard shelf displays colorful cards containing sample text, a website link and a landscape illustration. Headline: Your clipboard, with a memory.” Do not merely repeat hashtags or say “image of.”
+Write specific alt text for every finished slide. Describe the headline, actual screenshot, and key information. Example: “Pastrix’s Mac clipboard shelf displays colorful cards containing sample text, a website link, and a landscape illustration. Headline: Your clipboard, with a memory.” Do not merely repeat hashtags or say “image of.”
 
 ## Claims to avoid
 
-Do not claim App Store availability, Apple notarization, Intel support, complete macOS-version coverage, encrypted clipboard storage, flawless paste delivery, an independent security audit, cloud sync, iOS support, OCR, AI or MCP features. The latter features are roadmap ideas, not shipping functionality. On-demand update checks contact GitHub; never claim that the app makes no network requests at all. “History stays local” is accurate; “your data can never leave” is not, since users may export or share clips.
+Do not claim App Store availability, Apple notarization, Intel support, complete macOS-version coverage, encrypted clipboard storage, flawless paste delivery, an independent security audit, cloud sync, iOS support, OCR, AI, MCP features, or new functionality in 1.2.2. On-demand update checks contact GitHub, so do not claim that the app makes no network requests at all. “History stays local” is accurate; “your data can never leave” is not, because users can export or share clips.
 
-## Final checklist and publishing
+## Review checklist
 
-1. Confirm account, public URLs, release facts, and the exact carousel order.
-2. Preview every slide at phone size; check cropping, contrast, spelling and URL/QR readability.
-3. Supply the finished carousel, caption and per-slide alt text for any required review.
-4. Publish only to the selected Instagram account once all required approvals are satisfied. Do not spend money, tag unrelated accounts, automate comments, or send DMs.
-5. Verify that the published carousel has all five slides in order, the intended caption and alt text, and report the direct Instagram permalink plus the publishing time and time zone.
-6. If blocked, retain the finished assets/caption and report precisely what David must do. Never report a draft or scheduled post as already published.
+1. Confirm every name is Pastrix and every public link uses the Pastrix repository or site.
+2. Confirm the supplied purple clipboard P icon is used without alteration or replacement.
+3. Preview every slide at phone size; check cropping, contrast, spelling, URL readability, and carousel order.
+4. Test the QR code against `https://davidgrossman.github.io/Pastrix/`.
+5. Deliver the five finished slide files, caption, and per-slide alt text together for review.
+6. Report any missing source screenshot or uncertain claim instead of inventing it.
+
+Stop after delivering the review package. Do not post, schedule, or open a publishing flow.
